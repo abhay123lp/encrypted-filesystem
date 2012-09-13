@@ -2,6 +2,7 @@ package com.bm.nio.file;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.AccessMode;
 import java.nio.file.CopyOption;
@@ -12,80 +13,91 @@ import java.nio.file.FileSystem;
 import java.nio.file.LinkOption;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.FileAttributeView;
 import java.nio.file.spi.FileSystemProvider;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
 
 public class FileSystemProviderEncrypted extends FileSystemProvider {
 
+	private FileSystemProvider mBaseFSP;
+	public FileSystemProviderEncrypted(FileSystemProvider baseFSP, char[] pwd){
+		mBaseFSP = baseFSP;
+	}
+	
 	@Override
 	public String getScheme() {
-		// TODO Auto-generated method stub
 		return "encrypted";
+	}
+
+	
+	
+	@Override
+	public SeekableByteChannel newByteChannel(Path path,
+			Set<? extends OpenOption> options, FileAttribute<?>... attrs)
+			throws IOException {
+		return new SeekableByteChannelEncrypted();
 	}
 
 	@Override
 	public FileSystem newFileSystem(URI uri, Map<String, ?> env)
 			throws IOException {
-		// TODO Auto-generated method stub
-		return null;
+		return new FileSystemEncrypted();
 	}
 
 	@Override
 	public FileSystem getFileSystem(URI uri) {
-		// TODO Auto-generated method stub
-		return null;
+		return new FileSystemEncrypted();
 	}
 
 	@Override
 	public Path getPath(URI uri) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public SeekableByteChannel newByteChannel(Path path,
-			Set<? extends OpenOption> options, FileAttribute<?>... attrs)
-			throws IOException {
-		// TODO Auto-generated method stub
-		return null;
+		return new PathEncrypted();
 	}
 
 	@Override
 	public DirectoryStream<Path> newDirectoryStream(Path dir,
 			Filter<? super Path> filter) throws IOException {
-		// TODO Auto-generated method stub
-		return null;
+		return new DirectoryStreamEncrypted();
 	}
 
 	@Override
 	public void createDirectory(Path dir, FileAttribute<?>... attrs)
 			throws IOException {
-		// TODO Auto-generated method stub
-		
 	}
 
 	@Override
 	public void delete(Path path) throws IOException {
-		// TODO Auto-generated method stub
-		
 	}
 
+	
+	private byte [] copyBuffer = new byte [4*1024];
+	private ByteBuffer copyBufferB = ByteBuffer.wrap(copyBuffer);
 	@Override
 	public void copy(Path source, Path target, CopyOption... options)
 			throws IOException {
-		// TODO Auto-generated method stub
+		final Set<OpenOption> srcOpts = new HashSet<>();
+		srcOpts.add(StandardOpenOption.READ);
+		final Set<OpenOption> trgOpts = new HashSet<>();
+		trgOpts.add(StandardOpenOption.WRITE);
+		//StandardOpenOption.APPEND
+		SeekableByteChannel srcChannel = this.newByteChannel(source, srcOpts, (FileAttribute<Object>)null);
+		SeekableByteChannel trgChannel = this.newByteChannel(target, trgOpts, (FileAttribute<Object>)null);
+		while (srcChannel.read(copyBufferB) > 0){
+			trgChannel.write(copyBufferB);
+		}
 		
 	}
 
 	@Override
 	public void move(Path source, Path target, CopyOption... options)
 			throws IOException {
-		// TODO Auto-generated method stub
+		throw new UnsupportedOperationException();
 		
 	}
 
