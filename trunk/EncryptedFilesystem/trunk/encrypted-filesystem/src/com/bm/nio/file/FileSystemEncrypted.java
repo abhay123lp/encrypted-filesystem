@@ -1,6 +1,7 @@
 package com.bm.nio.file;
 
 import java.io.IOException;
+
 import java.nio.file.FileStore;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
@@ -8,11 +9,19 @@ import java.nio.file.PathMatcher;
 import java.nio.file.WatchService;
 import java.nio.file.attribute.UserPrincipalLookupService;
 import java.nio.file.spi.FileSystemProvider;
+import java.util.Map;
 import java.util.Set;
 
 
 public class FileSystemEncrypted extends FileSystem {
 
+	
+	FileSystemEncrypted(FileSystemProviderEncrypted provider,
+            Path path,
+            Map<String, ?> env){
+    	
+    }
+	
 	@Override
 	public FileSystemProvider provider() {
 		// TODO Auto-generated method stub
