@@ -2,6 +2,7 @@ package com.bm.nio.file;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.AccessMode;
@@ -10,25 +11,34 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.DirectoryStream.Filter;
 import java.nio.file.FileStore;
 import java.nio.file.FileSystem;
+import java.nio.file.FileSystemAlreadyExistsException;
+import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.FileAttributeView;
 import java.nio.file.spi.FileSystemProvider;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.zip.ZipError;
+
+import com.sun.nio.zipfs.ZipFileSystem;
 
 
 public class FileSystemProviderEncrypted extends FileSystemProvider {
 
-	private FileSystemProvider mBaseFSP;
-	public FileSystemProviderEncrypted(FileSystemProvider baseFSP, char[] pwd){
+	//private FileSystemProvider mBaseFSP;
+	/*public FileSystemProviderEncrypted(FileSystemProvider baseFSP, char[] pwd){
 		mBaseFSP = baseFSP;
-	}
+	}*/
+	
+	private final Map<Path, FileSystemEncrypted> filesystems = new HashMap<>();
 	
 	@Override
 	public String getScheme() {
@@ -45,11 +55,60 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	}
 
 	@Override
-	public FileSystem newFileSystem(URI uri, Map<String, ?> env)
-			throws IOException {
-		return new FileSystemEncrypted();
-	}
+    public FileSystem newFileSystem(URI uri, Map<String, ?> env)
+            throws IOException
+        {
+            Path path = uriToPath(uri);
+            synchronized(filesystems) {
+                Path realPath = null;
+                if (validatePath(path)) {
+                    realPath = path.toRealPath();
+                    if (filesystems.containsKey(realPath))
+                        throw new FileSystemAlreadyExistsException();
+                }
+                FileSystemEncrypted zipfs = null;
+                try {
+                    zipfs = new FileSystemEncrypted(this, path, env);
+                } catch (ZipError ze) {
+                    String pname = path.toString();
+                    if (pname.endsWith(".zip") || pname.endsWith(".jar"))
+                        throw ze;
+                    // assume NOT a zip/jar file
+                    throw new UnsupportedOperationException();
+                }
+                filesystems.put(realPath, zipfs);
+                return zipfs;
+            }
+        }
+	
+	
+    protected Path uriToPath(URI uri) {
+        String scheme = uri.getScheme();
+        if ((scheme == null) || !scheme.equalsIgnoreCase(getScheme())) {
+            throw new IllegalArgumentException("URI scheme is not '" + getScheme() + "'");
+        }
+        try {
+            // only support legacy JAR URL syntax encrypted:{uri}
+            String spec = uri.getSchemeSpecificPart();
+            return Paths.get(new URI(spec)).toAbsolutePath();
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException(e.getMessage(), e);
+        }
+    }
 
+    private boolean validatePath(Path path) {
+        try {
+            BasicFileAttributes attrs =
+                Files.readAttributes(path, BasicFileAttributes.class);
+            if (!attrs.isRegularFile() && !attrs.isDirectory())
+                throw new UnsupportedOperationException();
+            return true;
+        } catch (IOException ioe) {
+            return false;
+        }
+    }
+
+	
 	@Override
 	public FileSystem getFileSystem(URI uri) {
 		return new FileSystemEncrypted();
