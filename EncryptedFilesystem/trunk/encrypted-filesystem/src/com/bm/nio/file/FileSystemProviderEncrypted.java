@@ -12,6 +12,7 @@ import java.nio.file.DirectoryStream.Filter;
 import java.nio.file.FileStore;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystemAlreadyExistsException;
+import java.nio.file.FileSystemNotFoundException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.OpenOption;
@@ -51,14 +52,24 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	public SeekableByteChannel newByteChannel(Path path,
 			Set<? extends OpenOption> options, FileAttribute<?>... attrs)
 			throws IOException {
+		
 		return new SeekableByteChannelEncrypted();
 	}
 
+	/**
+	 * Generates filesystem and creates configuration file by default
+	 * @param uri
+	 * @param env
+	 * @return
+	 * @throws IOException
+	 */
 	@Override
     public FileSystem newFileSystem(URI uri, Map<String, ?> env)
             throws IOException
         {
+			//TODO: create configuration file
             Path path = uriToPath(uri);
+            //path.
             synchronized(filesystems) {
                 Path realPath = null;
                 if (validatePath(path)) {
@@ -66,18 +77,10 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
                     if (filesystems.containsKey(realPath))
                         throw new FileSystemAlreadyExistsException();
                 }
-                FileSystemEncrypted zipfs = null;
-                try {
-                    zipfs = new FileSystemEncrypted(this, path, env);
-                } catch (ZipError ze) {
-                    String pname = path.toString();
-                    if (pname.endsWith(".zip") || pname.endsWith(".jar"))
-                        throw ze;
-                    // assume NOT a zip/jar file
-                    throw new UnsupportedOperationException();
-                }
-                filesystems.put(realPath, zipfs);
-                return zipfs;
+                FileSystemEncrypted encfs = null;
+               	encfs = new FileSystemEncrypted(this, path, env);
+                filesystems.put(realPath, encfs);
+                return encfs;
             }
         }
 	
@@ -88,7 +91,7 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
             throw new IllegalArgumentException("URI scheme is not '" + getScheme() + "'");
         }
         try {
-            // only support legacy JAR URL syntax encrypted:{uri}
+            // only support legacy URL syntax encrypted:{uri}
             String spec = uri.getSchemeSpecificPart();
             return Paths.get(new URI(spec)).toAbsolutePath();
         } catch (URISyntaxException e) {
@@ -111,12 +114,23 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	
 	@Override
 	public FileSystem getFileSystem(URI uri) {
-		return new FileSystemEncrypted();
+        synchronized (filesystems) {
+            FileSystemEncrypted encfs = null;
+            try {
+            	encfs = filesystems.get(uriToPath(uri).toRealPath());
+            } catch (IOException x) {
+                // ignore the ioe from toRealPath(), return FSNFE
+            }
+            if (encfs == null)
+                throw new FileSystemNotFoundException();
+            return encfs;
+        }
 	}
 
 	@Override
 	public Path getPath(URI uri) {
-		return new PathEncrypted();
+        String spec = uri.getSchemeSpecificPart();
+        return getFileSystem(uri).getPath(spec);
 	}
 
 	@Override

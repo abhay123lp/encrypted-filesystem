@@ -13,6 +13,10 @@ import java.util.Map;
 import java.util.Set;
 
 
+/**
+ * @author Mike
+ *	Single Filesystem usually corresponds to encrypted folder 
+ */
 public class FileSystemEncrypted extends FileSystem {
 
 	
