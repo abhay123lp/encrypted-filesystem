@@ -26,7 +26,9 @@ import java.nio.file.spi.FileSystemProvider;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.zip.ZipError;
 
 import com.sun.nio.zipfs.ZipFileSystem;
@@ -39,7 +41,11 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 		mBaseFSP = baseFSP;
 	}*/
 	
-	private final Map<Path, FileSystemEncrypted> filesystems = new HashMap<>();
+	//private final Map<Path, FileSystemEncrypted> filesystems = new HashMap<>();
+	
+	//A correspondence between encrypted folder root of underlying filesystem and
+	//encrypted filesystem object
+	private final TreeMap<Path, FileSystemEncrypted> filesystems = new TreeMap<Path, FileSystemEncrypted>();
 	
 	@Override
 	public String getScheme() {
@@ -67,23 +73,52 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
     public FileSystem newFileSystem(URI uri, Map<String, ?> env)
             throws IOException
         {
-			//TODO: create configuration file
             Path path = uriToPath(uri);
-            //path.
-            synchronized(filesystems) {
-                Path realPath = null;
-                if (validatePath(path)) {
-                    realPath = path.toRealPath();
-                    if (filesystems.containsKey(realPath))
-                        throw new FileSystemAlreadyExistsException();
-                }
-                FileSystemEncrypted encfs = null;
-               	encfs = new FileSystemEncrypted(this, path, env);
-                filesystems.put(realPath, encfs);
-                return encfs;
-            }
+            return newFileSystem(path, env);
         }
 	
+	
+	@Override
+	public FileSystem newFileSystem(Path path, Map<String, ?> env)
+			throws IOException {
+		//TODO: create configuration file
+		// or choose already existing one		
+        synchronized(filesystems) {
+            Path realPath = null;
+            if (validatePath(path)) {
+                realPath = path.toRealPath();
+                //if (filesystems.containsKey(realPath))
+                if (getFileSystem(realPath) != null)
+                    throw new FileSystemAlreadyExistsException();
+            }
+            FileSystemEncrypted encfs = null;
+           	encfs = new FileSystemEncrypted(this, path, env);
+            filesystems.put(realPath, encfs);
+            return encfs;
+        }
+	}
+	
+	/**
+	 * Find path in filesystem and return encrypted filesystem if already exists 
+	 * Path should be from underlying filesystem 
+	 * @param p
+	 * @return
+	 * Covered +
+	 */
+	protected FileSystem getFileSystem(Path p){
+		//should find root folder 
+		final Entry<Path, FileSystemEncrypted> h = filesystems.higherEntry(p);
+		if (h != null){
+			if (p.startsWith(h.getKey()))
+				return h.getValue();
+		}
+		final Entry<Path, FileSystemEncrypted> l = filesystems.lowerEntry(p);
+		if (l != null){
+			if (p.startsWith(l.getKey()))
+				return l.getValue();
+		}		
+		return null;
+	}
 	
     protected Path uriToPath(URI uri) {
         String scheme = uri.getScheme();
