@@ -20,6 +20,7 @@ import java.util.zip.ZipFile;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.sun.nio.zipfs.ZipFileSystem;
 import com.sun.nio.zipfs.ZipFileSystemProvider;
 
 public class FileSystemEncryptedTest {
@@ -170,6 +171,7 @@ public class FileSystemEncryptedTest {
 			FileSystem fs = fpe.getFileSystem(uriEncrypted(pathToURI(encSubPath)));
 			System.out.println(fs.getRootDirectories());
 			//enc1.delete();
+			
 			
 		} catch (IOException e) {
 			e.printStackTrace();
