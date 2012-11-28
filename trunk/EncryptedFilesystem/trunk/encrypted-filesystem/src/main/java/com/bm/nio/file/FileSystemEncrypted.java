@@ -27,6 +27,11 @@ public class FileSystemEncrypted extends FileSystem {
 	
 	private Path mRoot;
 	private FileSystemProviderEncrypted mProvider; 
+	/**
+	 * @param provider
+	 * @param path - path of underlying filesystem, i.e. D:/enc1
+	 * @param env
+	 */
 	FileSystemEncrypted(FileSystemProviderEncrypted provider,
             Path path,
             Map<String, ?> env){
@@ -43,6 +48,29 @@ public class FileSystemEncrypted extends FileSystem {
 			e.printStackTrace();
 			return null;
 		}
+	}
+
+	//returns root as PathEncrypted
+	@Override
+	public Iterable<Path> getRootDirectories() {
+		final List<Path> roots = new ArrayList<Path>();
+		roots.add(toEncrypted(mRoot));
+		return roots;
+	}
+	
+	//Gets path string RELATIVE TO THE ROOT of filesystem, [D:/enc1/]dir, or together with filesystem root D:/enc1/dir
+	//file:///D:/prog/workspace/encrypted-filesystem/src/test/sandbox/enc23/
+	//Returns PathEncrypted 
+	@Override
+	public Path getPath(String first, String... more) {
+		// TODO: make to work properly
+		//let underlying fs do all stick work. Create absolute path to not deal with .., ./ etc
+		final Path lPath = mRoot.getFileSystem().getPath(first, more).toAbsolutePath();
+		//if root is D:/enc1, and furst = D:/enc2/dir, then throw exception
+		if (!lPath.startsWith(mRoot))
+			throw new IllegalArgumentException("path " + lPath + " does not belong filesystem path " + mRoot);
+		return new PathEncrypted(this, lPath.toAbsolutePath());
+		//return null;
 	}
 	
 	@Override
@@ -74,14 +102,6 @@ public class FileSystemEncrypted extends FileSystem {
 		return "/";
 	}
 
-	//returns root as PathEncrypted
-	@Override
-	public Iterable<Path> getRootDirectories() {
-		final List<Path> roots = new ArrayList<Path>();
-		roots.add(toEncrypted(mRoot));
-		return roots;
-	}
-
 	@Override
 	public Iterable<FileStore> getFileStores() {
 		// TODO Auto-generated method stub
@@ -91,15 +111,6 @@ public class FileSystemEncrypted extends FileSystem {
 	@Override
 	public Set<String> supportedFileAttributeViews() {
 		// TODO Auto-generated method stub
-		return null;
-	}
-
-	//Gets path string RELATIVE TO THE ROOT of filesystem, [D:/enc1/]dir, or together with filesystem root D:/enc1/dir
-	//file:///D:/prog/workspace/encrypted-filesystem/src/test/sandbox/enc23/
-	//Returns PathEncrypted 
-	@Override
-	public Path getPath(String first, String... more) {
-		// TODO: make to work properly
 		return null;
 	}
 
