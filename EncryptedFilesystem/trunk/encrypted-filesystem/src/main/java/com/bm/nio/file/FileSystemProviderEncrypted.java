@@ -25,17 +25,11 @@ import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.FileAttributeView;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.zip.ZipError;
-
-import javax.xml.bind.ValidationException;
-
-import com.sun.nio.zipfs.ZipFileSystem;
 
 
 public class FileSystemProviderEncrypted extends FileSystemProvider {
@@ -68,7 +62,7 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	//.\enc2
 	//.\enc2\test
 	//.\enc20	
-	private static class ComparatorPath implements Comparator<Path> {
+	protected static class ComparatorPath implements Comparator<Path> {
 
 		@Override
 		public int compare(Path o1, Path o2) {
@@ -101,8 +95,8 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 
 	/**
 	 * Generates filesystem and creates configuration file by default
-	 * @param uri
-	 * @param env
+	 * @param uri - encrypted path, encrypted:file:///D:/enc1 or encrypted:jar:///D:/enc1.zip 
+	 * @param env - list of parameters for the filesystem
 	 * @return
 	 * @throws IOException
 	 */
@@ -114,7 +108,23 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
             return newFileSystem(path, env);
         }
 	
+	// === URI vs PATH ===
+	// URI contains filesystem predicate, like file:///D:/
+	// PATH is just a plain path, but with a link to filesystem it belongs, i.e. D:/ and Path.getFileSystem = WindowsFileSystem
+	// ===
 	
+	// === absolute vs real paths ===
+	//	real = absolute + real names in Path (not synonyms, case sensitive)
+	// real = D:/Users
+	// absolute = D:/Пользователи
+	// ===
+	
+	/**
+	 * @param path - underlyng path, D:/enc1 or D:/enc1.zip
+	 * @param env - list of parameters for the filesystem
+	 * @return
+	 * @throws IOException
+	 */
 	@Override
 	public FileSystem newFileSystem(Path path, Map<String, ?> env)
 			throws IOException {
@@ -139,7 +149,7 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	/**
 	 * Find path in filesystem and return encrypted filesystem if already exists 
 	 * Path should be from underlying filesystem 
-	 * @param p
+	 * @param p - underlyng path, D:/enc1 or D:/enc1.zip
 	 * @return
 	 * Covered +
 	 */
@@ -199,7 +209,7 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
             	encfs = getFileSystem(uriToPath(uri).toRealPath());
             } catch (IOException x) {
                 // ignore the ioe from toRealPath(), return FSNFE
-            	System.out.println(x);
+            	//System.out.println(x);
             }
             if (encfs == null)
                 throw new FileSystemNotFoundException();
@@ -212,8 +222,6 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
     //returns PathEncrypted, PathEncrypted(dir)
 	@Override
 	public Path getPath(URI uri) {
-//        String spec = uri.getSchemeSpecificPart();
-//        return getFileSystem(uri).getPath(spec);
 		String spec = uri.getSchemeSpecificPart();
         return getFileSystem(uri).getPath(spec);
 	}

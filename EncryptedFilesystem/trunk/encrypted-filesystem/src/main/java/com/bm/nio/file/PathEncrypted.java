@@ -12,8 +12,56 @@ import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.Iterator;
 
+import com.sun.nio.zipfs.ZipPath;
+
+/**
+ * @author Mike
+ * For most functions it works as a proxy to underlying paths
+ */
 public class PathEncrypted implements Path {
 
+	private final FileSystemEncrypted pFs;
+	private final Path pPath;
+	/**
+	 * @param fs - encrypted filesystem (i.e. folder of zip file etc.)
+	 * @param path - underlying path (belongs to underlying filesystem)
+	 */
+	protected PathEncrypted(FileSystemEncrypted fs, Path path){
+		pFs = fs;
+		pPath = path;
+	}
+	
+	//+ Done
+	@Override
+	public boolean equals(Object obj) {
+        return obj != null &&
+                obj instanceof PathEncrypted &&
+                this.pFs == ((PathEncrypted)obj).pFs &&
+                compareTo((Path) obj) == 0;
+	}
+
+	//TODO: unit test
+	@Override
+	public int compareTo(Path other) {
+		final Path o1 = this;
+		final Path o2 = other;
+		final int o1Cnt = o1.getNameCount();
+		final int o2Cnt = o2.getNameCount();
+		final int oMin = Math.min(o1Cnt, o2Cnt);
+		for (int i = 0; i < oMin; i ++){
+			final int compare = o1.getName(i).compareTo(o2.getName(i));
+			if (compare != 0)
+				return compare;
+		}
+		if (o1Cnt == o2Cnt)
+			return 0;
+		else if (o1Cnt > o2Cnt)//longer-->greater
+			return 1;
+		else 
+			return -1;
+	}
+
+	
 	@Override
 	public FileSystem getFileSystem() {
 		// TODO Auto-generated method stub
@@ -164,12 +212,6 @@ public class PathEncrypted implements Path {
 	public Iterator<Path> iterator() {
 		// TODO Auto-generated method stub
 		return null;
-	}
-
-	@Override
-	public int compareTo(Path other) {
-		// TODO Auto-generated method stub
-		return 0;
 	}
 
 }
