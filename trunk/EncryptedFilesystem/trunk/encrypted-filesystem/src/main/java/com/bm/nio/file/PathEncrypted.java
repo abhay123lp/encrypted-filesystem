@@ -40,7 +40,7 @@ public class PathEncrypted implements Path {
                 compareTo((Path) obj) == 0;
 	}
 
-	//TODO: unit test
+	//TOTEST
 	@Override
 	public int compareTo(Path other) {
 		final Path o1 = this;
@@ -61,6 +61,15 @@ public class PathEncrypted implements Path {
 			return -1;
 	}
 
+	//TOTEST
+	@Override
+	public String toString() {
+		if (this.isAbsolute())
+			//TODO consider returning decrypted path
+			return pPath.toString();
+		else
+			return pPath.toString();
+	}
 	
 	@Override
 	public FileSystem getFileSystem() {
@@ -185,6 +194,7 @@ public class PathEncrypted implements Path {
 	@Override
 	public Path toRealPath(LinkOption... options) throws IOException {
 		// TODO Auto-generated method stub
+		// TODO Consider returning decrypted path 
 		return null;
 	}
 

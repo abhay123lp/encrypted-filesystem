@@ -6,6 +6,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.FileStore;
 import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
 import java.nio.file.Paths;
@@ -39,15 +40,32 @@ public class FileSystemEncrypted extends FileSystem {
     	mProvider = provider;
     }
 	
-	private Path toEncrypted(Path p){
+	/**
+	 * @param uri - underlying uri, i.e. file://D:/enc1/dir
+	 * @return - encrypted path
+	 * <p> See {@link #toEncrypted(Path)}
+	 */
+	protected Path toEncrypted(URI uri){
+		return toEncrypted(mProvider.uriToPath(uri));
+	}
+	
+	/**
+	 * @param path - underlying path, i.e. D:/enc1/dir
+	 * @return - encrypted path
+	 * <p> See {@link #toEncrypted(URI)}
+	 */
+	protected Path toEncrypted(Path path){
 		//TODO: create correct transformation 
-		try {
-			return Paths.get(new URI(provider().getScheme() + ":" + p.toUri()));
-		} catch (URISyntaxException e) {
+		//try {
+			//return Paths.get(new URI(provider().getScheme() + ":" + p.toUri()));
+		if (!path.startsWith(mRoot))
+			throw new IllegalArgumentException("path " + path + " does not belong filesystem path " + mRoot);
+		return new PathEncrypted(this, path.toAbsolutePath());
+		//} catch (URISyntaxException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
-			return null;
-		}
+		//	e.printStackTrace();
+		//	return null;
+		//}
 	}
 
 	//returns root as PathEncrypted
@@ -61,15 +79,17 @@ public class FileSystemEncrypted extends FileSystem {
 	//Gets path string RELATIVE TO THE ROOT of filesystem, [D:/enc1/]dir, or together with filesystem root D:/enc1/dir
 	//file:///D:/prog/workspace/encrypted-filesystem/src/test/sandbox/enc23/
 	//Returns PathEncrypted 
+	//TOTEST
 	@Override
 	public Path getPath(String first, String... more) {
 		// TODO: make to work properly
 		//let underlying fs do all stick work. Create absolute path to not deal with .., ./ etc
-		final Path lPath = mRoot.getFileSystem().getPath(first, more).toAbsolutePath();
+		final Path lPath = mRoot.resolve(mRoot.getFileSystem().getPath(first, more).toAbsolutePath());
 		//if root is D:/enc1, and furst = D:/enc2/dir, then throw exception
-		if (!lPath.startsWith(mRoot))
-			throw new IllegalArgumentException("path " + lPath + " does not belong filesystem path " + mRoot);
-		return new PathEncrypted(this, lPath.toAbsolutePath());
+		//if (!lPath.startsWith(mRoot))
+		//	throw new IllegalArgumentException("path " + lPath + " does not belong filesystem path " + mRoot);
+		//return new PathEncrypted(this, lPath.toAbsolutePath());
+		return toEncrypted(lPath);
 		//return null;
 	}
 	
@@ -99,7 +119,7 @@ public class FileSystemEncrypted extends FileSystem {
 
 	@Override
 	public String getSeparator() {
-		return "/";
+		return mRoot.getFileSystem().getSeparator();
 	}
 
 	@Override
