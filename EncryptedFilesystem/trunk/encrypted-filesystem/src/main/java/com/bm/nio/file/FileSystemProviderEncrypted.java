@@ -135,7 +135,7 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
             if (validatePath(path)) {
                 realPath = path.toRealPath();
                 //if (filesystems.containsKey(realPath))
-                if (getFileSystem(realPath) != null)
+                if (getFileSystemInternal(realPath) != null)
                     throw new FileSystemAlreadyExistsException();
             } else
             	throw new InvalidPathException(path.toString(), path + " can not be used as encrypted storage");
@@ -151,9 +151,10 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	 * Path should be from underlying filesystem 
 	 * @param p - underlyng path, D:/enc1 or D:/enc1.zip
 	 * @return
+	 * <p> See {@link #getFileSystemInternal(URI)}}
 	 * Covered +
 	 */
-	protected FileSystem getFileSystem(Path p){
+	protected FileSystemEncrypted getFileSystemInternal(Path p){
 		//should find root folder 
 		final Entry<Path, FileSystemEncrypted> h = filesystems.ceilingEntry(p);
 		if (h != null){
@@ -198,15 +199,37 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
             return false;
         }
     }
-
+    
 	//Gets encrypted URI, encrypted:file:///D:/enc1/dir
-    //returns FileSystemEncrypted, FileSystemEncrypted(D:/enc1)
+    //returns FileSystemEncrypted, FileSystemEncrypted(D:/enc1)    
 	@Override
 	public FileSystem getFileSystem(URI uri) {
+		return getFileSystemInternal(uri);
+//        synchronized (filesystems) {
+//            FileSystem encfs = null;
+//            try {
+//            	encfs = getFileSystem(uriToPath(uri).toRealPath());
+//            } catch (IOException x) {
+//                // ignore the ioe from toRealPath(), return FSNFE
+//            	//System.out.println(x);
+//            }
+//            if (encfs == null)
+//                throw new FileSystemNotFoundException();
+//            return encfs;
+//        }
+	}
+	//Gets encrypted URI, encrypted:file:///D:/enc1/dir
+    //returns FileSystemEncrypted, FileSystemEncrypted(D:/enc1)	
+	/**
+	 * @param uri - encrypted URI, encrypted:file:///D:/enc1/dir
+	 * @return FileSystemEncrypted, FileSystemEncrypted(D:/enc1)
+	 * <p> See {@link #getFileSystemInternal(Path)}}
+	 */
+	protected FileSystemEncrypted getFileSystemInternal(URI uri) {
         synchronized (filesystems) {
-            FileSystem encfs = null;
+            FileSystemEncrypted encfs = null;
             try {
-            	encfs = getFileSystem(uriToPath(uri).toRealPath());
+            	encfs = getFileSystemInternal(uriToPath(uri).toRealPath());
             } catch (IOException x) {
                 // ignore the ioe from toRealPath(), return FSNFE
             	//System.out.println(x);
@@ -222,8 +245,18 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
     //returns PathEncrypted, PathEncrypted(dir)
 	@Override
 	public Path getPath(URI uri) {
-		String spec = uri.getSchemeSpecificPart();
-        return getFileSystem(uri).getPath(spec);
+		//1
+		//final String underSpec = uri.getSchemeSpecificPart();//here underlying spec, like file://D:/enc1/dir
+		//final URI underUri = new URI(spec);//here underlying URI, like file://D:/enc1/dir
+		//final String spec = underUri.getSchemeSpecificPart();//here spec, like D:/enc1/dir
+        //return getFileSystem(uri).getPath(spec);
+		
+		//2
+		//final Path underPath = uriToPath(uri);
+		//return getFileSystem(underPath).toEncrypted(underPath);
+		//3
+        return getFileSystemInternal(uri).toEncrypted(uri);
+		
 	}
 
 	@Override

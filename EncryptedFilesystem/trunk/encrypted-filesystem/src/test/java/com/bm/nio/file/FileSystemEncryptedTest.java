@@ -22,6 +22,7 @@ import org.junit.Test;
 
 import com.sun.nio.zipfs.ZipFileSystem;
 import com.sun.nio.zipfs.ZipFileSystemProvider;
+import com.sun.nio.zipfs.ZipPath;
 
 public class FileSystemEncryptedTest {
 
@@ -169,7 +170,8 @@ public class FileSystemEncryptedTest {
 			String encSubPath = sandboxPath + "/enc23/dir";
 			newTempDir(encSubPath);
 			FileSystem fs = fpe.getFileSystem(uriEncrypted(pathToURI(encSubPath)));
-			System.out.println(fs.getRootDirectories());
+			for (Path p : fs.getRootDirectories())
+				System.out.println(p);
 			//enc1.delete();
 			
 			

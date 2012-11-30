@@ -5,6 +5,8 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.sun.nio.zipfs.ZipPath;
+
 
 public class Test {
 
@@ -36,8 +38,12 @@ public class Test {
 		//checking problem when mRoot =  jar:file:/zipfstest.zip!/BAR/PAR, fileSystem = jar:file:/zipfstest.zip
 		//and received "/BAR" as getPath function
 		Path p3 = p.getFileSystem().getPath("/PAR");
-		System.out.println(p2.resolve("PAR"));//should be true
+		System.out.println(p2.resolve("RAR").startsWith(p2));//should be true
+		System.out.println(p2.resolve("/RAR").startsWith(p2));//should be false
+		System.out.println(p2.getFileSystem().getPath("/PAR2", "PAR3", "PAR4").toAbsolutePath());
 		
+		System.out.println(p2.startsWith(p2));//should be true
+		 
 	}
 
 }
