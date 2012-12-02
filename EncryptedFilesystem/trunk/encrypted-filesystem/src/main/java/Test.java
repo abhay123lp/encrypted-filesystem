@@ -1,10 +1,14 @@
+import java.io.File;
 import java.net.URI;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.sun.nio.zipfs.ZipFileSystem;
 import com.sun.nio.zipfs.ZipPath;
 
 
@@ -43,7 +47,10 @@ public class Test {
 		System.out.println(p2.getFileSystem().getPath("/PAR2", "PAR3", "PAR4").toAbsolutePath());
 		
 		System.out.println(p2.startsWith(p2));//should be true
-		 
+		
+		Path pathDir = Files.createDirectory(p3);
+		System.out.println(Files.isDirectory(pathDir));
+		
 	}
 
 }

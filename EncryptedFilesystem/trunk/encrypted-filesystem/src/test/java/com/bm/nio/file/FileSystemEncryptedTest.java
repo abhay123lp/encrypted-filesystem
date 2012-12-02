@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.zip.ZipFile;
 
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -128,7 +129,7 @@ public class FileSystemEncryptedTest {
 	 * Test functions of creating and getting filesystems
 	 */
 	@Test
-	public void newGetFilesystem(){
+	public void newGetCloseFilesystem(){
 
 		FileSystemProviderEncrypted fpe = mFspe;
 		
@@ -165,15 +166,38 @@ public class FileSystemEncryptedTest {
 				nestedException = true;
 			}
 			Assert.assertTrue(nestedException);//check error in case of duplication
+			// === nested - high level filesystem not allowed ===
+			nestedException = false;
+			try {
+				newTempFieSystem(fpe, sandboxPath + "/enc300/dir");
+				//TOD1O: implement this check in filesystemprovider!
+				newTempFieSystem(fpe, sandboxPath + "/enc300");
+			} catch (FileSystemAlreadyExistsException e) {
+				nestedException = true;
+			}
+			Assert.assertTrue(nestedException);//check error in case of duplication
 			// === === ===
 			
 			String encSubPath = sandboxPath + "/enc23/dir";
 			newTempDir(encSubPath);
 			FileSystem fs = fpe.getFileSystem(uriEncrypted(pathToURI(encSubPath)));
-			for (Path p : fs.getRootDirectories())
+			for (Path p : fs.getRootDirectories()){
+				Assert.assertTrue(p.toString().endsWith("enc23"));//D:\prog\workspace\encrypted-filesystem-trunk\src\test\sandbox\enc23
 				System.out.println(p);
+			}
 			//enc1.delete();
 			
+			// === closing - should not be exception ===
+			boolean exception = false;
+			try {
+				FileSystem fsClose = newTempFieSystem(fpe, sandboxPath + "/encClose/dir");
+				fsClose.close();
+				newTempFieSystem(fpe, sandboxPath + "/encClose/dir");
+			} catch (Exception e) {
+				exception = true;
+			}
+			Assert.assertFalse(exception);
+			// === === ===
 			
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -190,9 +214,36 @@ public class FileSystemEncryptedTest {
 //		}
 	}
 	
+	
+	
 	//@Test
 	public void test(){
 		System.out.println("39".compareTo("3d"));
 	}
 	
+	@After
+	public void clean(){
+		File f = new File(sandboxPath);
+		if (f.isDirectory())
+			deleteFolderContents(f);
+	}
+	
+	public static void deleteFolderContents(File folder) {
+		deleteFolderInternal(folder, true);
+	}
+	
+	private static void deleteFolderInternal(File folder, boolean isContentsOnly) {
+	    File[] files = folder.listFiles();
+	    if(files!=null) {
+	        for(File f: files) {
+	            if(f.isDirectory()) {
+	            	deleteFolderInternal(f, false);
+	            } else {
+	                f.delete();
+	            }
+	        }
+	    }
+	    if (!isContentsOnly)
+	    	folder.delete();
+	}
 }
