@@ -24,6 +24,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.FileAttributeView;
 import java.nio.file.spi.FileSystemProvider;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Map;
@@ -158,12 +159,18 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 		//should find root folder 
 		final Entry<Path, FileSystemEncrypted> h = filesystems.ceilingEntry(p);
 		if (h != null){
-			if (p.startsWith(h.getKey()))
+			final Path ceiling = h.getKey();
+			if (p.startsWith(ceiling))
+				return h.getValue();
+			if (ceiling.startsWith(p))
 				return h.getValue();
 		}
 		final Entry<Path, FileSystemEncrypted> l = filesystems.floorEntry(p);
 		if (l != null){
-			if (p.startsWith(l.getKey()))
+			final Path floor = l.getKey();
+			if (p.startsWith(floor))
+				return l.getValue();
+			if (floor.startsWith(p))
 				return l.getValue();
 		}		
 		return null;
@@ -255,10 +262,24 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 		//final Path underPath = uriToPath(uri);
 		//return getFileSystem(underPath).toEncrypted(underPath);
 		//3
+		//TOD1O: can be exception if no filesystem exists for thsi URI. Resolution - the same way works zip filesystem (correct for our case) 
+		//but windowsfilesystem can do that
         return getFileSystemInternal(uri).toEncrypted(uri);
 		
 	}
 
+	
+	protected void closeFilesystem(FileSystem fs){
+		final ArrayList<Path> toRemove = new ArrayList<Path>();
+		for(Entry<Path, FileSystemEncrypted> e : filesystems.entrySet()){
+			if (e.getValue().equals(fs))
+				toRemove.add(e.getKey());
+		}
+		for (Path p : toRemove)
+			filesystems.remove(p);
+			
+	}
+	
 	@Override
 	public DirectoryStream<Path> newDirectoryStream(Path dir,
 			Filter<? super Path> filter) throws IOException {

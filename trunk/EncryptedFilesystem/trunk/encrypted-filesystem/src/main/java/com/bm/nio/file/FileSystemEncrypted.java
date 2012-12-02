@@ -1,12 +1,16 @@
 package com.bm.nio.file;
 
+import java.io.File;
 import java.io.IOException;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.FileStore;
 import java.nio.file.FileSystem;
+import java.nio.file.FileSystemException;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
 import java.nio.file.Paths;
@@ -17,6 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import sun.font.CreatedFontTracker;
 
 
 /**
@@ -35,7 +41,15 @@ public class FileSystemEncrypted extends FileSystem {
 	 */
 	FileSystemEncrypted(FileSystemProviderEncrypted provider,
             Path path,
-            Map<String, ?> env){
+            Map<String, ?> env) throws IOException{
+		if (!Files.isDirectory(path))
+			throw new InvalidPathException(path.toString(), path + " can not be used as encrypted storage - not a directory");
+		
+		//TODO: create common functions to encryps/decrypt file by password
+		//read encrypted properties from file
+		Path config = path.resolve("config.properties");
+		if (!Files.exists(config))
+			Files.createFile(config);
     	mRoot = path.toAbsolutePath();
     	mProvider = provider;
     }
@@ -79,6 +93,8 @@ public class FileSystemEncrypted extends FileSystem {
 	//Gets path string RELATIVE TO THE ROOT of filesystem, [D:/enc1/]dir, or together with filesystem root D:/enc1/dir
 	//file:///D:/prog/workspace/encrypted-filesystem/src/test/sandbox/enc23/
 	//Returns PathEncrypted 
+	//example1: root=D:/enc1, first = dir, return D:/enc/dir
+	//example2: root=D:/enc1, first = /dir, throws IllegalArgumentException (D:/dir is not part of D:/enc1)
 	//TOTEST
 	@Override
 	public Path getPath(String first, String... more) {
@@ -95,20 +111,23 @@ public class FileSystemEncrypted extends FileSystem {
 	
 	@Override
 	public FileSystemProvider provider() {
-		// TODO Auto-generated method stub
 		return mProvider;
 	}
 
+	
+	private boolean isClosed = false;
+	//TOTEST
 	@Override
-	public void close() throws IOException {
-		// TODO Auto-generated method stub
-		
+	public synchronized void close() throws IOException {
+		// TODO remove itself from filesystemprovider
+		//also need to close channels and streams
+		mProvider.closeFilesystem(this);
+		isClosed = true;
 	}
 
 	@Override
-	public boolean isOpen() {
-		// TODO Auto-generated method stub
-		return false;
+	public synchronized boolean isOpen() {
+		return !isClosed;
 	}
 
 	@Override
