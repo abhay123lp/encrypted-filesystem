@@ -19,11 +19,13 @@ import java.nio.file.LinkOption;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.ProviderMismatchException;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.FileAttributeView;
 import java.nio.file.spi.FileSystemProvider;
+import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -31,6 +33,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
+
+
 
 
 public class FileSystemProviderEncrypted extends FileSystemProvider {
@@ -90,8 +94,18 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	public SeekableByteChannel newByteChannel(Path path,
 			Set<? extends OpenOption> options, FileAttribute<?>... attrs)
 			throws IOException {
-		
-		return new SeekableByteChannelEncrypted();
+		if (!(path instanceof PathEncrypted))
+			throw new ProviderMismatchException();
+		//TODO:
+		try {
+			final Path underPath =  ((PathEncrypted)path).getUnderPath();
+			//Files.isReadable(underPath);
+			//Files.isWritable(underPath);
+			
+			return new SeekableByteChannelEncrypted(Files.newByteChannel(underPath, options));
+		} catch (GeneralSecurityException e) {
+			throw new IOException(e);
+		}
 	}
 
 	/**

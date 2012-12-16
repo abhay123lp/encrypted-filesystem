@@ -21,14 +21,21 @@ import com.sun.nio.zipfs.ZipPath;
 public class PathEncrypted implements Path {
 
 	private final FileSystemEncrypted pFs;
-	private final Path pPath;
+	private final Path mPath;
 	/**
 	 * @param fs - encrypted filesystem (i.e. folder of zip file etc.)
 	 * @param path - underlying path (belongs to underlying filesystem)
 	 */
 	protected PathEncrypted(FileSystemEncrypted fs, Path path){
 		pFs = fs;
-		pPath = path;
+		mPath = path;
+	}
+	
+	/**
+	 * @return underlying path, i.e. D;\enc1
+	 */
+	protected Path getUnderPath(){
+		return mPath;
 	}
 	
 	//+ Done
@@ -66,9 +73,9 @@ public class PathEncrypted implements Path {
 	public String toString() {
 		if (this.isAbsolute())
 			//TODO consider returning decrypted path
-			return pPath.toString();
+			return mPath.toString();
 		else
-			return pPath.toString();
+			return mPath.toString();
 	}
 	
 	@Override
