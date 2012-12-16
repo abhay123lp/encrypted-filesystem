@@ -21,6 +21,8 @@ import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 import javax.xml.bind.DatatypeConverter;
 
+import com.sun.org.apache.bcel.internal.generic.GETSTATIC;
+
 //TODO: implement based on underlying channel
 class SeekableByteChannelEncrypted implements SeekableByteChannel{
 	//================
@@ -44,8 +46,9 @@ class SeekableByteChannelEncrypted implements SeekableByteChannel{
     protected byte buf[];
     private int plainDataBlockSize;
     private int encryptedDataBlockSize;
+    private long mPosition = 0;
     //protected byte bufEnc[];//encrypted data for buf after flush
-    protected int count;
+    //protected int count;
     public static final String PLAIN_BLOCK_SIZE = "block.size";
     public static final String PASSWORD = "password";
     public static final String TRANSFORMATION = "transformation";
@@ -160,6 +163,8 @@ class SeekableByteChannelEncrypted implements SeekableByteChannel{
 	volatile boolean mIsOpen;
 	@Override
 	public void close() throws IOException {
+		//TODO: flush from the buffer, 
+		//... or alternatively flush it after each write operation
 		mIsOpen = false;
 	}
 
@@ -173,13 +178,13 @@ class SeekableByteChannelEncrypted implements SeekableByteChannel{
 			throw new ClosedChannelException();
 	}
 	
-	@Override
-	public long size() throws IOException {
+	public long sizeEncrypted() throws IOException {
 		checkOpen();
 		return mChannel.size();
 	}
 
-	public long sizeDecrypted() throws IOException {
+	@Override
+	public long size() throws IOException {
 		checkOpen();
 		
 		long longSize = mChannel.size();
@@ -199,20 +204,101 @@ class SeekableByteChannelEncrypted implements SeekableByteChannel{
 		
 	}
 	
+	/**
+	 * @return position in decrypted data
+	 * @throws IOException
+	 */
 	@Override
 	public long position() throws IOException {
 		checkOpen();
-		// TODO Auto-generated method stub
-		return 0;
+		return mPosition;
+	}
+	
+	/**
+	 * @return position in encrypted data.
+	 * @throws IOException
+	 */
+	public long positionEncrypted() throws IOException {
+		checkOpen();
+		return mChannel.position();
+	}
+	/**
+	 * pos and blockSize should be both encrypted or plain
+	 * @param pos - position in encrypted or plain data
+	 * @param blockSize size of encrypted or plain block, where position is located in
+	 * @return numbel of block starting from 0
+	 */
+	private long getBlockNum(long pos, long blockSize){
+		//final long blockSize = (long)plainDataBlockSize;
+		final long num = pos / blockSize;
+		return num;
 	}
 
+	/**
+	 * @param pos - position in plain (decrypted) data
+	 * @return position within block
+	 */
+	private int getPosInBlock(long pos){
+		final long blockSize = (long)plainDataBlockSize;
+		long tmp = pos % blockSize;
+		return (int)tmp;
+	}
+
+	/**
+	 * Decrypts block and load to buffer from the current encrypted position
+	 */
+	private void loadBlock(){
+		//TODO:
+	}
+	/**
+	 * Encrypts block and puts buffer to underChannel from the current encrypted position
+	 */
+	private void saveBlock(){
+		//TODO:
+	}
+	/**
+	 * @param newPosition - sets position in plain (decrypted) data
+	 * @return
+	 * @throws IOException
+	 */
+	//TOTEST
 	@Override
 	public SeekableByteChannel position(long newPosition) throws IOException {
+		//scenario 1: write < blockSize bytes and then move position to previous block
+		//result 1 (flush after each write): - no issues
+		//result 2 (flush after buffer is full): - loosing current buffer, that is not full
+		
+		//scenario 2: write < blockSize bytes 2 times
+		//result 1 (flush after each write, append mode): - second write should be from the beginning of block, but position
+		// change is not supported in append mode 
+		//result 2 (flush after buffer is full): - no issues, will write only after buffer is full
+		
 		checkOpen();
-		// TODO Auto-generated method stub
-		return null;
+		//if current block (buffer) changes
+		if (getBlockNum(newPosition, plainDataBlockSize) != getBlockNum(mPosition, plainDataBlockSize)){
+			//set position in underlying channel to the beginning of block mChannel.position();
+			//can be overflow when newPosition > MAX_LONG/(encryptedDataBlockSize/plainDataBlockSize), then 
+			//posEnc > MAX_LONG
+			long posEnc = getBlockNum(newPosition, plainDataBlockSize) * (long)encryptedDataBlockSize; 
+			//out of bounds
+			if (posEnc > sizeEncrypted()){//position > that size. Don't rely on size(), it may be inaccurate
+				posEnc = sizeEncrypted();
+				long lastBlock = getBlockNum(posEnc, encryptedDataBlockSize);
+				//can only put position to the beginning of the last block as can't say more accurate for plain data
+				posEnc = lastBlock * (long)encryptedDataBlockSize;
+				newPosition = lastBlock * (long)plainDataBlockSize;
+			}
+			mChannel.position(posEnc);
+			//load to buffer if required
+			//loadBlock(getBlockNum(newPosition));
+			loadBlock();
+		}
+		//set position in plain data
+		mPosition = newPosition;
+		return this;
 	}
 
+	//TOTEST
 	@Override
 	public int read(ByteBuffer dst) throws IOException {
 		checkOpen();
@@ -220,18 +306,20 @@ class SeekableByteChannelEncrypted implements SeekableByteChannel{
 		return 0;
 	}
 
-	@Override
-	public SeekableByteChannel truncate(long size) throws IOException {
-		checkOpen();
-		// TODO Auto-generated method stub
-		return null;
-	}
-
+	//TOTEST
 	@Override
 	public int write(ByteBuffer src) throws IOException {
 		checkOpen();
 		// TODO Auto-generated method stub
 		return 0;
+	}
+
+	//TOTEST
+	@Override
+	public SeekableByteChannel truncate(long size) throws IOException {
+		checkOpen();
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 	
