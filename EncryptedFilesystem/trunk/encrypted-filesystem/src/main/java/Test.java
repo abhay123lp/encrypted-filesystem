@@ -1,12 +1,27 @@
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.net.URI;
+import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.Channel;
+import java.nio.channels.Channels;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
+import java.nio.file.OpenOption;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.spi.FileSystemProvider;
 import java.util.HashMap;
 import java.util.Map;
+
+import javax.xml.bind.DatatypeConverter;
+
+import sun.nio.fs.WindowsFileSystemProvider;
 
 import com.sun.nio.zipfs.ZipFileSystem;
 import com.sun.nio.zipfs.ZipPath;
@@ -50,7 +65,58 @@ public class Test {
 		
 		Path pathDir = Files.createDirectory(p3);
 		System.out.println(Files.isDirectory(pathDir));
+
 		
+		long longSize = 0xFFFFFFFFFFFFFFFFl;//Integer.MAX_VALUE;
+		//longSize *= 2;
+		int intSize = (int)longSize;
+		System.out.println(longSize);
+		System.out.println (intSize == longSize);
+		// ===
+		testWindows();
+		testZIP();
+	}
+	
+	public void testWindows() throws Exception {
+		// ==== Testing Windows filesystem ===
+		//two options to write - WRITE, WRITE + APPEND. Simple writes just rewrite current values
+		SeekableByteChannel s = Files.newByteChannel(Paths.get("test.txt"), StandardOpenOption.WRITE, StandardOpenOption.READ, StandardOpenOption.CREATE);//, StandardOpenOption.APPEND);
+		ByteBuffer bb = ByteBuffer.wrap("12345".getBytes());
+		s.truncate(0);//clear file
+		s.position(0);//start position
+		s.write(bb);
+		bb.position(2);
+		s.write(bb);
+		//
+		s.position(0);
+		byte [] bbrb = new byte[(int)s.size()];
+		s.read(ByteBuffer.wrap(bbrb));
+		System.out.println(new String(bbrb));//should be 12345345
+		s.close();
 	}
 
+	public static void testZIP() throws Exception {
+		// ==== Testing ZIP filesystem ===
+		//two options to write - WRITE, WRITE + APPEND. Simple writes just rewrite current values
+		URI uri = URI.create("jar:file:/test.zip!/test.txt");
+		Map<String, String> env = new HashMap<>(); 
+	    env.put("create", "true");
+		FileSystem zipfs = FileSystems.newFileSystem(uri, env);
+		Path pz = zipfs.provider().getPath(uri);
+		SeekableByteChannel s = Files.newByteChannel(pz, StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.APPEND);//, StandardOpenOption.APPEND);
+		ByteBuffer bb = ByteBuffer.wrap("12345".getBytes());
+		//s.truncate(0);//clear file - unsupported
+		//s.position(0);//start position - unsupported
+		s.write(bb);
+		bb.position(2);
+		s.write(bb);
+		//
+		//s.position(0);
+		s.close();
+		s = Files.newByteChannel(pz, StandardOpenOption.READ, StandardOpenOption.CREATE);//, StandardOpenOption.APPEND);
+		byte [] bbrb = new byte[(int)s.size()];
+		s.read(ByteBuffer.wrap(bbrb));
+		System.out.println(new String(bbrb));//should be 12345345
+		s.close();
+	}
 }
