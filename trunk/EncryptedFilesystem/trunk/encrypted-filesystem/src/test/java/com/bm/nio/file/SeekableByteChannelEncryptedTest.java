@@ -49,9 +49,13 @@ public class SeekableByteChannelEncryptedTest {
 			
 		}
 		
+		ByteBuffer src;
 		@Override
 		public int write(ByteBuffer src) throws IOException {
-			return 0;
+			byte [] buf = new byte [src.remaining()];
+			src.get(buf);
+			this.src = ByteBuffer.wrap(buf);//src.duplicate();
+			return buf.length;
 		}
 		
 		@Override
@@ -66,6 +70,8 @@ public class SeekableByteChannelEncryptedTest {
 		
 		@Override
 		public int read(ByteBuffer dst) throws IOException {
+			src.position(0);
+			dst.put(src);
 			return 0;
 		}
 		
@@ -102,21 +108,31 @@ public class SeekableByteChannelEncryptedTest {
 	@Test
 	public void sizeDecryptedTest() throws Exception {
 		SeekableByteChannelTest underChannel = getUnderChannel();
+		SeekableByteChannelEncrypted ce;
 		//
 		long size = Integer.MAX_VALUE;
-		size = size * 9 + 150;
+		size = size * 9 + 169;//remainder 32
 		underChannel.setSize(size);
-		//=== with padding ===
-		SeekableByteChannelEncrypted ce = getSeekableByteChannelEncrypted(underChannel, "AES/CBC/PKCS5Padding", 8);
-		Assert.assertEquals(4831838253L, ce.size());
-		//=== no padding ===
+		//plain {1, 2}
+		underChannel.write(ByteBuffer.wrap(new byte [] {-105, -7, -116, -10, 103, -9, -23, 61, -19, -90, -75, -63, -31, 31, 15, 48, 119, 94, -52, -83, -40, -128, -69, -117, 67, 81, 98, 123, 111, -42, 105, -68}));
+		//=== with padding, 8 bytes dec block ===
+		ce = getSeekableByteChannelEncrypted(underChannel, "AES/CBC/PKCS5Padding", 8);
+		Assert.assertEquals(((size - 1)/32)*8 + 2, ce.size());
+		//=== with padding, 128 bytes dec block ===
+		ce = getSeekableByteChannelEncrypted(underChannel, "AES/CBC/PKCS5Padding", 128);
+		Assert.assertEquals(((size - 1)/160)*128 + 2, ce.size());
+		//=== no padding, 8 bytes dec block ===
+		underChannel.setSize(size + 2);
+		underChannel.write(ByteBuffer.wrap(new byte [] {-77, 68}));//plain {1, 2}
 		ce = getSeekableByteChannelEncrypted(underChannel, "AES/CFB/NoPadding", 8);
-		//ce = new SeekableByteChannelEncrypted(underChannel, props);
+		Assert.assertEquals(underChannel.size(), ce.size());
+		//=== no padding, 128 bytes dec block ===
+		ce = getSeekableByteChannelEncrypted(underChannel, "AES/CFB/NoPadding", 128);
 		Assert.assertEquals(underChannel.size(), ce.size());
 	}
 	
 	@Test
-	public void positionDecryptedTest() throws Exception {
+	public void positionTest() throws Exception {
 		SeekableByteChannelTest underChannel = getUnderChannel();
 		//
 		long size = Integer.MAX_VALUE;
@@ -146,7 +162,31 @@ public class SeekableByteChannelEncryptedTest {
 	}
 	
 	@Test
+	public void writeTest(){
+		
+	}
+	
+	@Test
+	public void seekableByteChannelReadWriteTest() throws Exception{
+		//case1: 
+		SeekableByteChannelTest underChannel = getUnderChannel();
+		SeekableByteChannelEncrypted ce;
+		//
+		//=== with padding, 8 bytes dec block ===
+		ce = getSeekableByteChannelEncrypted(underChannel, "AES/CBC/PKCS5Padding", 8);
+		ce.write(ByteBuffer.wrap("12345678123456789".getBytes()));
+		byte [] b = new byte [100];
+		int len = ce.read(ByteBuffer.wrap(b));
+		System.out.println(new String(b, 0, len));
+		
+	}
+	@Test
 	public void seekableByteChannelTest() throws Exception{
+		// get encrypted data for test
+//		SeekableByteChannelEncrypted sbe = getSeekableByteChannelEncrypted(getUnderChannel(), "AES/CFB/NoPadding", 8);
+//		byte [] buf = sbe.encryptBlock(new byte [] {1, 2});
+		//
+		
 		String text = "12345678901234567890";
 		HashMap<String, Object> props = new HashMap<String, Object>();
 		//props.put(OutputStreamCrypto.BLOCK_SIZE, new Integer(8));
@@ -154,7 +194,7 @@ public class SeekableByteChannelEncryptedTest {
 		ByteOutputStream bo = new ByteOutputStream();
 		
 		
-		SeekableByteChannelEncrypted ce = new SeekableByteChannelEncrypted(null);
+		SeekableByteChannelEncrypted ce = getSeekableByteChannelEncrypted(getUnderChannel(), "AES/CFB/NoPadding", 8);//new SeekableByteChannelEncrypted(null);
 		//System.out.println(DatatypeConverter.printHexBinary(ce.encryptBlock("123456789012345".getBytes())));
 		//System.out.println(new String(ce.decryptBlock(ce.encryptBlock(text.getBytes()))));
 		Assert.assertEquals(text, new String(ce.decryptBlock(ce.encryptBlock(text.getBytes()))));
