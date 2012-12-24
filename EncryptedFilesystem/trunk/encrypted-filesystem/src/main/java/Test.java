@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
+import java.nio.channels.ByteChannel;
 import java.nio.channels.Channel;
 import java.nio.channels.Channels;
 import java.nio.channels.SeekableByteChannel;
@@ -110,9 +111,12 @@ public class Test {
 		s.write(bb);
 		bb.position(2);
 		s.write(bb);
+		
+//		SeekableByteChannel s1 = Files.newByteChannel(pz, StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.APPEND);//, StandardOpenOption.APPEND);
+//		s1.write(ByteBuffer.wrap("bb".getBytes()));
 		//
-		//s.position(0);
 		s.close();
+//		s1.close();
 		s = Files.newByteChannel(pz, StandardOpenOption.READ, StandardOpenOption.CREATE);//, StandardOpenOption.APPEND);
 		byte [] bbrb = new byte[(int)s.size()];
 		s.read(ByteBuffer.wrap(bbrb));

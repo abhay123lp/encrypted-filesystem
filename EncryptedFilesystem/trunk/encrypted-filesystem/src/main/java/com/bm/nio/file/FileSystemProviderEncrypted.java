@@ -99,10 +99,13 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 		//TODO:
 		try {
 			final Path underPath =  ((PathEncrypted)path).getUnderPath();
+			//underPath.getFileSystem().provider().checkAccess(underPath, AccessMode.READ);
 			//Files.isReadable(underPath);
 			//Files.isWritable(underPath);
-			
-			return new SeekableByteChannelEncrypted(Files.newByteChannel(underPath, options));
+			SeekableByteChannelEncrypted ch = new SeekableByteChannelEncrypted(Files.newByteChannel(underPath, options));
+			if (options.contains(StandardOpenOption.APPEND))
+				ch.position(ch.size());
+			return ch;
 		} catch (GeneralSecurityException e) {
 			throw new IOException(e);
 		}
