@@ -1,6 +1,7 @@
 package com.bm.nio.file.channel;
 
 import java.io.IOException;
+import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 
@@ -19,9 +20,19 @@ public class SeekableByteChannelTestFixed implements SeekableByteChannel {
 		ByteBuffer src;
 		@Override
 		public int write(ByteBuffer src) throws IOException {
+//			byte [] buf = new byte [src.remaining()];
+//			src.get(buf);
+//			this.src = ByteBuffer.wrap(buf);
+//			return buf.length;
+			int len = src.remaining();
+			src.position(src.capacity());
+			return len;
+		}
+		
+		public int setSrc(ByteBuffer src){
 			byte [] buf = new byte [src.remaining()];
 			src.get(buf);
-			this.src = ByteBuffer.wrap(buf);//src.duplicate();
+			this.src = ByteBuffer.wrap(buf);
 			return buf.length;
 		}
 		
@@ -38,8 +49,11 @@ public class SeekableByteChannelTestFixed implements SeekableByteChannel {
 		@Override
 		public int read(ByteBuffer dst) throws IOException {
 			src.position(0);
-			dst.put(src);
-			return 0;
+			int len = Math.min(dst.remaining(), src.remaining());
+			while (src.hasRemaining()&&dst.hasRemaining())
+		         dst.put(src.get()); 
+			//dst.put(src);
+			return len;
 		}
 		
 		long mSize = 0;

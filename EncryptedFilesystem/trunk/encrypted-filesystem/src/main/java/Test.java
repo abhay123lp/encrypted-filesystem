@@ -1,4 +1,5 @@
 import java.io.File;
+
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URI;
@@ -17,8 +18,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.spi.FileSystemProvider;
+import java.security.GeneralSecurityException;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import javax.xml.bind.DatatypeConverter;
 
@@ -76,7 +81,21 @@ public class Test {
 		// ===
 		testWindows();
 		testZIP();
+		//
+		testEnum(BlockOperationOptions.INTERRUPTIBLE, BlockOperationOptions.INTERRUPTIBLE, BlockOperationOptions.IGNOREPOSITIONERROR);
 	}
+	
+	private static enum BlockOperationOptions
+	{
+		INTERRUPTIBLE,
+		IGNOREPOSITIONERROR
+	}
+	
+	private void testEnum(BlockOperationOptions ...ops){
+		Set<BlockOperationOptions> s = new HashSet<BlockOperationOptions>(Arrays.asList(ops));
+		System.out.println(s);
+	}
+	
 	
 	public void testWindows() throws Exception {
 		// ==== Testing Windows filesystem ===

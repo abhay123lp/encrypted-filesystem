@@ -64,7 +64,7 @@ public class SeekableByteChannelEncryptedTest {
 		size = size * 9 + 169;//remainder 32
 		underChannel.setSize(size);
 		//plain {1, 2}
-		underChannel.write(ByteBuffer.wrap(new byte [] {-105, -7, -116, -10, 103, -9, -23, 61, -19, -90, -75, -63, -31, 31, 15, 48, 119, 94, -52, -83, -40, -128, -69, -117, 67, 81, 98, 123, 111, -42, 105, -68}));
+		underChannel.setSrc(ByteBuffer.wrap(new byte [] {-105, -7, -116, -10, 103, -9, -23, 61, -19, -90, -75, -63, -31, 31, 15, 48, 119, 94, -52, -83, -40, -128, -69, -117, 67, 81, 98, 123, 111, -42, 105, -68}));
 		//=== with padding, 8 bytes dec block ===
 		ce = getSeekableByteChannelEncrypted(underChannel, "AES/CBC/PKCS5Padding", 8);
 		Assert.assertEquals(((size - 1)/32)*8 + 2, ce.size());
@@ -73,7 +73,7 @@ public class SeekableByteChannelEncryptedTest {
 		Assert.assertEquals(((size - 1)/160)*128 + 2, ce.size());
 		//=== no padding, 8 bytes dec block ===
 		underChannel.setSize(size + 2);
-		underChannel.write(ByteBuffer.wrap(new byte [] {-77, 68}));//plain {1, 2}
+		underChannel.setSrc(ByteBuffer.wrap(new byte [] {-77, 68}));//plain {1, 2}
 		ce = getSeekableByteChannelEncrypted(underChannel, "AES/CFB/NoPadding", 8);
 		Assert.assertEquals(underChannel.size(), ce.size());
 		//=== no padding, 128 bytes dec block ===
@@ -86,14 +86,17 @@ public class SeekableByteChannelEncryptedTest {
 		SeekableByteChannelTestFixed underChannel = getUnderChannelFixed();
 		//
 		long size = Integer.MAX_VALUE;
-		size = size * 9 + 150;
+		size = size * 9 + 169;
 		underChannel.setSize(size);//size of encrypted data = 4 * decrypted size, for test with padding
+		//underChannel.write(ByteBuffer.wrap(new byte [] {-105, -7, -116, -10, 103, -9, -23, 61, -19, -90, -75, -63, -31, 31, 15, 48, 119, 94, -52, -83, -40, -128, -69, -117, 67, 81, 98, 123, 111, -42, 105, -68}));
+		underChannel.setSrc(ByteBuffer.wrap(new byte [] {-105, -7, -116, -10, 103, -9, -23, 61, -19, -90, -75, -63, -31, 31, 15, 48, 119, 94, -52, -83, -40, -128, -69, -117, 67, 81, 98, 123, 111, -42, 105, -68}));
 		//=== with padding ===
 		SeekableByteChannelEncrypted ce = getSeekableByteChannelEncrypted(underChannel, "AES/CBC/PKCS5Padding", 8);
 		//position above bounds
 		ce.position(size * 2);
-		Assert.assertEquals((size/32)*8, ce.position());//32 - encrypted block, 8 - plain block; size/32 - block num
-		Assert.assertEquals((size/32)*32, ce.positionEncrypted());
+		//Assert.assertEquals((size/32)*8, ce.position());//32 - encrypted block, 8 - plain block; size/32 - block num
+		Assert.assertEquals(((size - 1)/32)*8 + 2, ce.position());//32 - encrypted block, 8 - plain block; size-1 - last index;size-1/32 - block num
+		Assert.assertEquals(((size - 1)/32)*32, ce.positionEncrypted());//
 		//position within bounds
 		long posTmp = ce.position() - 150;//position in plain text measurement
 		ce.position(posTmp);
@@ -117,7 +120,7 @@ public class SeekableByteChannelEncryptedTest {
 	}
 	
 	@Test
-	public void seekableByteChannelReadWriteTest() throws Exception{
+	public void seekableByteChannelReadWriteTruncateTest() throws Exception{
 		//case1: 
 		SeekableByteChannelTestList underChannel = getUnderChannelList();
 		SeekableByteChannelEncrypted ce;
@@ -128,11 +131,18 @@ public class SeekableByteChannelEncryptedTest {
 		ce.position(11);//correcting 5 to 4
 		ce.write(ByteBuffer.wrap("4".getBytes()));
 		//ce.close();
-		ce.flush();
+		//ce.flush();
+		ce.position(0);
 		byte [] b = new byte [100];
 		int len = ce.read(ByteBuffer.wrap(b));
-		System.out.println(new String(b, 0, len));
+		Assert.assertEquals("12345678123456789", new String(b, 0, len));
 		
+		//check truncate
+		ce.truncate(16);
+		ce.position(8);
+		len = ce.read(ByteBuffer.wrap(b));
+		//System.out.println(new String(b, 0, len));
+		Assert.assertEquals("12345678", new String(b, 0, len));
 	}
 	@Test
 	public void seekableByteChannelTest() throws Exception{
