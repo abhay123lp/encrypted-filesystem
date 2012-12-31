@@ -1,7 +1,6 @@
-package com.bm.nio.file;
+package com.bm.nio.file.channel;
 
 import java.io.IOException;
-import java.io.OutputStream;
 
 import java.nio.ByteBuffer;
 import java.nio.channels.Channel;
@@ -10,10 +9,8 @@ import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.spi.AbstractInterruptibleChannel;
 import java.security.AlgorithmParameters;
 import java.security.GeneralSecurityException;
-import java.security.NoSuchAlgorithmException;
 import java.security.spec.KeySpec;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -21,26 +18,17 @@ import java.util.Set;
 import java.util.WeakHashMap;
 
 import javax.crypto.Cipher;
-import javax.crypto.CipherInputStream;
-import javax.crypto.CipherOutputStream;
-import javax.crypto.Mac;
-import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
-import javax.xml.bind.DatatypeConverter;
 
-import org.hamcrest.core.IsEqual;
-
-import sun.nio.fs.WindowsFileSystemProvider;
-
-import com.sun.nio.zipfs.ZipFileSystem;
-import com.sun.org.apache.bcel.internal.generic.GETSTATIC;
-
-//TODO: implement based on underlying channel
-class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel implements SeekableByteChannel {
+/**
+ * @author Mike
+ * implementation based on underlying channel
+ */
+public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel implements SeekableByteChannel {
 	//================
 	//MAC is additional hash (AAD), that may append to encrypted text to verify correct decryption
 	//Hash function depends on the secret key
@@ -65,12 +53,12 @@ class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel implemen
     private final int encBlockSize;
     private long mDecPos = 0;
     private long mDecSize = 0;
-    //protected byte bufEnc[];//encrypted data for buf after flush
-    //protected int count;
-    public static final String PLAIN_BLOCK_SIZE = "block.size";
-    public static final String PASSWORD = "password";
-    public static final String TRANSFORMATION = "transformation";
-
+    public static class EncryptedConfig{
+	    public static final String PLAIN_BLOCK_SIZE = "block.size";
+	    public static final String PASSWORD = "password";
+	    public static final String TRANSFORMATION = "transformation";
+    }
+    
 	protected final SeekableByteChannel mChannel;
 	private final Object mLock;
 	private static WeakHashMap<Channel, Object> locks = new WeakHashMap<Channel, Object>();
@@ -92,8 +80,8 @@ class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel implemen
         iv = initEncipher(encipher, key);
         initDecipher(decipher, key, iv);
         
-        decBlockSize = props.containsKey(PLAIN_BLOCK_SIZE) ?
-    			(Integer)props.get(PLAIN_BLOCK_SIZE) : 8192; //encipher.getOutputSize(8192);
+        decBlockSize = props.containsKey(EncryptedConfig.PLAIN_BLOCK_SIZE) ?
+    			(Integer)props.get(EncryptedConfig.PLAIN_BLOCK_SIZE) : 8192; //encipher.getOutputSize(8192);
 	    if (decBlockSize <= 0) {
 	        throw new IllegalArgumentException("Block size <= 0");
 	    }
@@ -170,10 +158,10 @@ class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel implemen
 	
     protected void initProps(Map<String, ?> props) throws GeneralSecurityException{
     	//TODO: write correct initialization and parse properties
-        char [] pwd = props.containsKey(PASSWORD) ?
-    			(char [] )props.get(PASSWORD) : new char[3];
-    	transformation = props.containsKey(TRANSFORMATION) ?
-    					 (String)props.get(TRANSFORMATION) : transformation;
+        char [] pwd = props.containsKey(EncryptedConfig.PASSWORD) ?
+    			(char [] )props.get(EncryptedConfig.PASSWORD) : new char[3];
+    	transformation = props.containsKey(EncryptedConfig.TRANSFORMATION) ?
+    					 (String)props.get(EncryptedConfig.TRANSFORMATION) : transformation;
     	//---
         SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
         KeySpec spec = new PBEKeySpec(pwd, salt, iterationCount, keyStrength);
@@ -186,23 +174,6 @@ class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel implemen
         return cipher;
     }
     
-//    protected void initProps(Map<String, ?> props) throws GeneralSecurityException{
-//    	//TODO: write correct initialization and parse properties
-//        char [] pwd = props.containsKey(PASSWORD) ?
-//    			(char [] )props.get(PASSWORD) : new char[3];
-//    	transformation = props.containsKey(TRANSFORMATION) ?
-//    					 (String)props.get(TRANSFORMATION) : transformation;
-//    	//---
-//        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
-//        KeySpec spec = new PBEKeySpec(pwd, salt, iterationCount, keyStrength);
-//        SecretKey tmp = factory.generateSecret(spec);
-//        key = new SecretKeySpec(tmp.getEncoded(), "AES");
-//        //dcipher = Cipher.getInstance("AES/CFB/NoPadding");
-//        encipher = Cipher.getInstance(transformation);
-//        decipher = Cipher.getInstance(transformation);
-//        iv = initEncipher(encipher, key);
-//        initDecipher(decipher, key, iv);
-//    }
 
     protected byte[] initEncipher(Cipher encipher, SecretKey key) throws GeneralSecurityException{
         encipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(new byte[16]));
@@ -442,8 +413,8 @@ class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel implemen
 		return (int)tmp;
 	}
 
-	private int loadBlock(long pos, BlockOperationOptions ...ops) throws IOException, GeneralSecurityException {
-		final Set<BlockOperationOptions> sOps = new HashSet<BlockOperationOptions>(Arrays.asList(ops));
+	private int loadBlock(long pos, BlockOperationOptions ...props) throws IOException, GeneralSecurityException {
+		final Set<BlockOperationOptions> sOps = new HashSet<BlockOperationOptions>(Arrays.asList(props));
 		return loadBlock(pos, sOps);
 	}
 	
@@ -453,20 +424,12 @@ class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel implemen
 	 * @throws IOException 
 	 * @throws GeneralSecurityException 
 	 */
-	private int loadBlock(long pos, final Set<BlockOperationOptions> ops) throws IOException, GeneralSecurityException {
-		//TODO:
+	private int loadBlock(long pos, final Set<BlockOperationOptions> props) throws IOException, GeneralSecurityException {
 		// Encrypted: blockEnc1|blockEnc2|... |blockEncN|lastBlockEnc
 		// Decrypted: bockDec1|blockDec2|...|blockDecN|lastBlockDec
 		// load block where pos is located in
 		synchronized (mLock) {
-			//update decrypted size in case under channel was updated 
-//			try {
-//				long sizeDec = getDecSize();
-//				if (mDecSize < sizeDec)
-//					mDecSize = sizeDec;
-//			} catch (IOException e) {
-//				// assume mDecSize is up to date
-//			}
+			//load decrypted size in case under channel was updated 
 			long decSize = sizeInternal();
 			//
 			if (pos > decSize)
@@ -481,10 +444,10 @@ class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel implemen
 			long posEnc = currBlock * (long)encBlockSize;
 			try {
 				mChannel.position(posEnc);
-			} catch (IOException e) {
+			} catch (UnsupportedOperationException e) {
 				// read from the current position, unless need to halt
-				if (ops.contains(BlockOperationOptions.STOPONPOSITIONERROR))
-					return 0;
+				if (props.contains(BlockOperationOptions.STOPONPOSITIONERROR))
+					return -1;
 			}
 			int lenEnc = getEncAmt(len);
 			ByteBuffer bufEnc = ByteBuffer.wrap(blockEnc, 0, lenEnc);
@@ -506,40 +469,44 @@ class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel implemen
 			//placing position back to the beginning of encrypted block
 			try {
 				mChannel.position(posEnc);
-			} catch (IOException e) {
+			} catch (UnsupportedOperationException e) {
 			}
 			return dec.length;
 		}
 	}
 	
-	private enum BlockOperationOptions
+//	protected enum BlockOperationOptions
+//	{
+//		/**
+//		 * non interruptible read/write
+//		 */
+//		NONINTERRUPTIBLE,
+//		/**
+//		 * do not perform read/write if unable to set position in encrypted (underlying) channel
+//		 */
+//		STOPONPOSITIONERROR
+//	}
+	
+	
+	private static class BlockOperationOptions
 	{
 		/**
 		 * non interruptible read/write
 		 */
-		NONINTERRUPTIBLE,
+		public final static BlockOperationOptions NONINTERRUPTIBLE = new BlockOperationOptions();
 		/**
 		 * do not perform read/write if unable to set position in encrypted (underlying) channel
 		 */
-		STOPONPOSITIONERROR
+		public final static BlockOperationOptions STOPONPOSITIONERROR = new BlockOperationOptions();
 	}
 	
-	private int saveBlock(long pos, BlockOperationOptions ...ops) throws IOException, GeneralSecurityException {
-		final Set<BlockOperationOptions> sOps = new HashSet<BlockOperationOptions>(Arrays.asList(ops));
+	
+	private int saveBlock(long pos, BlockOperationOptions ...props) throws IOException, GeneralSecurityException {
+		final Set<BlockOperationOptions> sOps = new HashSet<BlockOperationOptions>(Arrays.asList(props));
 		//return saveBlock(pos, true, true);
 		return saveBlock(pos, sOps);
 	}
 
-	/**
-	 * Encrypts block and puts buffer to underChannel from the current decrypted position
-	 * @param pos - position in block (decrypted)
-	 * @throws IOException 
-	 * @throws GeneralSecurityException 
-	 */
-//	private int saveBlock(long pos) throws IOException, GeneralSecurityException {
-//		return saveBlock(pos, true, true);
-//	}
-	
 	/**
 	 * Encrypts block and puts buffer to underChannel from the current decrypted position
 	 * @param pos - position in block (decrypted)
@@ -551,7 +518,7 @@ class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel implemen
 	 * @throws GeneralSecurityException
 	 */
 //	private int saveBlock(long pos, final boolean isIgnorePositionError, final boolean interruptible) throws IOException, GeneralSecurityException {
-	private int saveBlock(long pos, final Set<BlockOperationOptions> ops) throws IOException, GeneralSecurityException {
+	private int saveBlock(long pos, final Set<BlockOperationOptions> props) throws IOException, GeneralSecurityException {
 		//See implementation of write for Channels.WritableByteChannelImpl
 		// Encrypted: blockEnc1|blockEnc2|... |blockEncN|lastBlockEnc
 		// Decrypted: bockDec1|blockDec2|...|blockDecN|lastBlockDec
@@ -574,10 +541,10 @@ class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel implemen
 			long posEnc = currBlock * (long)encBlockSize;
 			try {
 				mChannel.position(posEnc);
-			} catch (IOException e) {
+			} catch (UnsupportedOperationException e) {
 				//if (!isIgnorePositionError)
-				if (ops.contains(BlockOperationOptions.STOPONPOSITIONERROR))
-					return 0;
+				if (props.contains(BlockOperationOptions.STOPONPOSITIONERROR))
+					return -1;
 				// write from the current position
 			}
 			byte [] enc = encryptBlock(block, 0, len);
@@ -585,7 +552,7 @@ class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel implemen
 			ByteBuffer buf = ByteBuffer.wrap(enc);
 			while (buf.remaining() > 0) {
 //				if (interruptible){
-				if (!ops.contains(BlockOperationOptions.NONINTERRUPTIBLE)){
+				if (!props.contains(BlockOperationOptions.NONINTERRUPTIBLE)){
 					try {
 						begin();
 						mChannel.write(buf);
@@ -646,25 +613,33 @@ class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel implemen
 				//can only put position to the beginning of the last block as can't say more accurate for plain data
 				long posEnc = getBlockNum(newPosition, decBlockSize) * (long)encBlockSize;
 				// === 1 - flush buffer before setting position. Continue if save is not supported (readonly)
+				UnsupportedOperationException ue = new UnsupportedOperationException("Unable to change position: allowed to change only within one block size " + decBlockSize);
 				try {
-					saveBlock(mDecPos);
-				} catch (GeneralSecurityException | IOException e) {
+					//
+					//saveBlock(mDecPos);
+					//don't change position if can't save current block - change 31.12.2012
+					if (saveBlock(mDecPos, BlockOperationOptions.STOPONPOSITIONERROR) == -1)
+						throw ue;
+				} catch (GeneralSecurityException e) {
 					//throw new IOException("Unable to set new position: unable to flush buffer");
 				}
 				//load to buffer if required
 				// === 2 - load new block. Continue if load is not supported (write only)
 				positionInternal(newPosition);
 				try {
-					loadBlock(mDecPos);
-				} catch (GeneralSecurityException | IOException e) {
+					//loadBlock(mDecPos);
+					if (loadBlock(mDecPos, BlockOperationOptions.STOPONPOSITIONERROR) == -1)
+						throw ue;
+				} catch (GeneralSecurityException e) {
 					//throw new IOException("Unable to set new position: unable to decrypt");
 				}
 				// === 3 - set new enc position.
 				try {
 					mChannel.position(posEnc);
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+				} catch (UnsupportedOperationException e) {
+					//don't care - if underlying channel does not support - use only this channel position
+					//change 31.12.2012 - do not change position if underlying channel does not support it
+					throw ue;
 				}
 			} else{
 				//set position in plain data
@@ -680,7 +655,6 @@ class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel implemen
 			mDecSize = mDecPos;
 	}
 
-	//TOTEST
 	@Override
 	public int write(ByteBuffer src) throws IOException {
 		checkOpen();
@@ -725,7 +699,7 @@ class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel implemen
 			}
 			//end
 			int lenEnd = src.remaining();
-			src.get(block, blockPos, lenEnd);
+			src.get(block, 0, lenEnd);
 			positionInternal(mDecPos + lenEnd);
 			try {
 				saveBlock(mDecPos, BlockOperationOptions.STOPONPOSITIONERROR);
@@ -736,12 +710,9 @@ class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel implemen
 		}
 	}
 
-	//TOTEST
 	@Override
 	public int read(ByteBuffer dst) throws IOException {
 		checkOpen();
-		// TODO Auto-generated method stub
-		// flush buffer if reading beyond current block
 		synchronized (mLock) {
 			final long decPosStart = mDecPos;
 			try {

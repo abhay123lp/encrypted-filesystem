@@ -28,8 +28,10 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.bm.nio.file.channel.SeekableByteChannelEncrypted;
 import com.bm.nio.file.channel.SeekableByteChannelTestFixed;
 import com.bm.nio.file.channel.SeekableByteChannelTestList;
+import com.bm.nio.file.channel.SeekableByteChannelTestListUnsupported;
 import com.bm.nio.file.stream.OutputStreamCrypto;
 import com.bm.nio.file.utils.Crypter;
 import com.sun.nio.zipfs.ZipFileSystem;
@@ -47,11 +49,15 @@ public class SeekableByteChannelEncryptedTest {
 		return new SeekableByteChannelTestList();
 	}
 	
+	private SeekableByteChannelTestListUnsupported getUnderChannelListUnsupported(){
+		return new SeekableByteChannelTestListUnsupported();
+	}
+	
 	private SeekableByteChannelEncrypted getSeekableByteChannelEncrypted(
 			SeekableByteChannel underChannel, String transformation, Integer blockSize) throws Exception {
 		HashMap<String, Object> props = new HashMap<String, Object>();
 		props.put(OutputStreamCrypto.BLOCK_SIZE, blockSize);
-		props.put(SeekableByteChannelEncrypted.TRANSFORMATION, transformation);
+		props.put(SeekableByteChannelEncrypted.EncryptedConfig.TRANSFORMATION, transformation);
 		return new SeekableByteChannelEncrypted(underChannel, props);
 	}
 	
@@ -115,11 +121,6 @@ public class SeekableByteChannelEncryptedTest {
 	}
 	
 	@Test
-	public void writeTest(){
-		
-	}
-	
-	@Test
 	public void seekableByteChannelReadWriteTruncateTest() throws Exception{
 		//case1: 
 		SeekableByteChannelTestList underChannel = getUnderChannelList();
@@ -144,23 +145,108 @@ public class SeekableByteChannelEncryptedTest {
 		//System.out.println(new String(b, 0, len));
 		Assert.assertEquals("12345678", new String(b, 0, len));
 	}
+	
 	@Test
-	public void seekableByteChannelTest() throws Exception{
-		// get encrypted data for test
-//		SeekableByteChannelEncrypted sbe = getSeekableByteChannelEncrypted(getUnderChannel(), "AES/CFB/NoPadding", 8);
-//		byte [] buf = sbe.encryptBlock(new byte [] {1, 2});
+	public void seekableByteChannelUnsupportedTest() throws Exception{
+		//TODO:
+		SeekableByteChannelTestListUnsupported underChannel;
+		SeekableByteChannelEncrypted ce;
+		int i = 0;
 		//
+		//=== with padding, 8 bytes dec block ===
+		underChannel = getUnderChannelListUnsupported();
+		ce = getSeekableByteChannelEncrypted(underChannel, "AES/CBC/PKCS5Padding", 8);
 		
-		String text = "12345678901234567890";
-		HashMap<String, Object> props = new HashMap<String, Object>();
-		//props.put(OutputStreamCrypto.BLOCK_SIZE, new Integer(8));
-		props.put(OutputStreamCrypto.PASSWORD, "pwd".toCharArray());
-		ByteOutputStream bo = new ByteOutputStream();
+		class UnsupportedTest{
+			public void testWrite(SeekableByteChannelEncrypted ce, SeekableByteChannelTestListUnsupported underChannel) throws Exception {
+				int i = 0;
+				//WRITE TEST
+				ByteBuffer dec = ByteBuffer.wrap("12345678123556789".getBytes());
+				ByteBuffer enc = ByteBuffer.wrap(new byte [100]);
+				ByteBuffer encFirst = null;
+				underChannel.first();
+				underChannel.reset();
+				i = 0;
+				while (underChannel.next()){
+					i ++;
+					underChannel.setSupported(SeekableByteChannelTestListUnsupported.WRITE);
+					dec.position(0);
+					ce.write(dec);//write unsupported
+					//enable everything to read
+					underChannel.setSupported();
+					underChannel.position(0);
+					ce.position(0);//if not set then remaining of previous write will change the result
+					underChannel.read(enc);
+					underChannel.position(0);
+					enc.position(0);
+					if (i == 1)
+						encFirst = SeekableByteChannelEncryptedTest.clone(enc);
+					Assert.assertEquals(encFirst, enc);
+					underChannel.reset();
+				}
+			}
+			
+			public void testRead(SeekableByteChannelEncrypted ce, SeekableByteChannelTestListUnsupported underChannel) throws Exception {
+				int i = 0;
+				ByteBuffer dec = ByteBuffer.wrap("12345678123556789".getBytes());
+				//ByteBuffer enc = ByteBuffer.wrap(new byte [100]);
+				ByteBuffer decTmp = ByteBuffer.wrap(new byte [100]);
+				underChannel.first();
+				underChannel.reset();
+				i = 0;
+				int len = 0;
+				while (underChannel.next()){
+					i ++;
+					underChannel.setSupported(SeekableByteChannelTestListUnsupported.READ);
+					decTmp.position(0);
+					len = ce.read(decTmp);
+					byte [] decResRaw = new byte [len];
+					ByteBuffer decRes = ByteBuffer.wrap(decResRaw);
+					decTmp.get(decResRaw, 0, len);
+					//enc.position(0);
+					underChannel.setSupported();
+					underChannel.position(0);
+					ce.position(0);
+					//ce.read(decRes);
+					Assert.assertTrue(decRes.equals(dec));
+					underChannel.reset();
+				}
+			}
+		}
 		
-		
-		SeekableByteChannelEncrypted ce = getSeekableByteChannelEncrypted(getUnderChannelFixed(), "AES/CFB/NoPadding", 8);//new SeekableByteChannelEncrypted(null);
-		//System.out.println(DatatypeConverter.printHexBinary(ce.encryptBlock("123456789012345".getBytes())));
-		//System.out.println(new String(ce.decryptBlock(ce.encryptBlock(text.getBytes()))));
-		Assert.assertEquals(text, new String(ce.decryptBlock(ce.encryptBlock(text.getBytes()))));
+		UnsupportedTest ut = new UnsupportedTest();
+		ut.testWrite(ce, underChannel);
+		//ut.testRead(ce, underChannel);
+		//=== no padding ===
+		underChannel = getUnderChannelListUnsupported();
+		ce = getSeekableByteChannelEncrypted(underChannel, "AES/CFB/NoPadding", 8);
+		ut.testWrite(ce, underChannel);
+		//ut.testRead(ce, underChannel);
 	}
+	
+	public static ByteBuffer clone(ByteBuffer original) {
+	       ByteBuffer clone = ByteBuffer.allocate(original.capacity());
+	       original.rewind();//copy from the beginning
+	       clone.put(original);
+	       original.rewind();
+	       clone.flip();
+	       return clone;
+	}	
+	
+	@Test
+	public void seekableByteChannelParallelTest() throws Exception{
+		//TODO:
+	}	
+	
+//	@Test
+//	public void seekableByteChannelTest() throws Exception{
+//		String text = "12345678901234567890";
+//		HashMap<String, Object> props = new HashMap<String, Object>();
+//		props.put(OutputStreamCrypto.PASSWORD, "pwd".toCharArray());
+//		ByteOutputStream bo = new ByteOutputStream();
+//		
+//		
+//		SeekableByteChannelEncrypted ce = getSeekableByteChannelEncrypted(getUnderChannelFixed(), "AES/CFB/NoPadding", 8);//new SeekableByteChannelEncrypted(null);
+//		Assert.assertEquals(text, new String(ce.decryptBlock(ce.encryptBlock(text.getBytes()))));
+//	}
 }

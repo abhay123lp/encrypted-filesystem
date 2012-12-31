@@ -82,18 +82,6 @@ public class Test {
 		testWindows();
 		testZIP();
 		//
-		testEnum(BlockOperationOptions.INTERRUPTIBLE, BlockOperationOptions.INTERRUPTIBLE, BlockOperationOptions.IGNOREPOSITIONERROR);
-	}
-	
-	private static enum BlockOperationOptions
-	{
-		INTERRUPTIBLE,
-		IGNOREPOSITIONERROR
-	}
-	
-	private void testEnum(BlockOperationOptions ...ops){
-		Set<BlockOperationOptions> s = new HashSet<BlockOperationOptions>(Arrays.asList(ops));
-		System.out.println(s);
 	}
 	
 	
