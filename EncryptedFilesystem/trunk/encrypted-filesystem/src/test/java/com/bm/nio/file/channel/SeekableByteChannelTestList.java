@@ -39,8 +39,8 @@ public class SeekableByteChannelTestList implements SeekableByteChannel {
 		
 		@Override
 		public SeekableByteChannel truncate(long size) throws IOException {
-			mSize = 0;
-			mBuf.position(0);
+			mSize = size;
+			mBuf.position((int)size);
 			//mPosition = 0;
 			return this;
 		}
@@ -53,8 +53,8 @@ public class SeekableByteChannelTestList implements SeekableByteChannel {
 		@Override
 		public int read(ByteBuffer dst) throws IOException {
 			//mBuf.position(0);
-			
-			int len = dst.remaining();
+			//int len = dst.remaining();
+			int len = (int)Math.min(dst.remaining(), mSize);
 			dst.put(mBufRaw, mBuf.position(), len);
 			mBuf.position(mBuf.position() + len);
 			return len;
