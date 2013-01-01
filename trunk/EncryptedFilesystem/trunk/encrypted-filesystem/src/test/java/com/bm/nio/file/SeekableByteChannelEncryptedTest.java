@@ -161,7 +161,7 @@ public class SeekableByteChannelEncryptedTest {
 			public void testWrite(SeekableByteChannelEncrypted ce, SeekableByteChannelTestListUnsupported underChannel) throws Exception {
 				int i = 0;
 				//WRITE TEST
-				ByteBuffer dec = ByteBuffer.wrap("12345678123556789".getBytes());
+				ByteBuffer dec = ByteBuffer.wrap("12345678abcdefghi".getBytes());
 				ByteBuffer enc = ByteBuffer.wrap(new byte [100]);
 				ByteBuffer encFirst = null;
 				underChannel.first();
@@ -188,7 +188,7 @@ public class SeekableByteChannelEncryptedTest {
 			
 			public void testRead(SeekableByteChannelEncrypted ce, SeekableByteChannelTestListUnsupported underChannel) throws Exception {
 				int i = 0;
-				ByteBuffer dec = ByteBuffer.wrap("12345678123556789".getBytes());
+				ByteBuffer dec = ByteBuffer.wrap("12345678abcdefghi".getBytes());
 				//ByteBuffer enc = ByteBuffer.wrap(new byte [100]);
 				ByteBuffer decTmp = ByteBuffer.wrap(new byte [100]);
 				underChannel.first();
@@ -197,25 +197,30 @@ public class SeekableByteChannelEncryptedTest {
 				int len = 0;
 				while (underChannel.next()){
 					i ++;
+					underChannel.setSupported();
+					ce.position(0);
+					underChannel.reset();
 					underChannel.setSupported(SeekableByteChannelTestListUnsupported.READ);
+					//underChannel.setUnsupported(SeekableByteChannelTestListUnsupported.POSITIONSET);
 					decTmp.position(0);
 					len = ce.read(decTmp);
+					decTmp.position(0);
 					byte [] decResRaw = new byte [len];
 					ByteBuffer decRes = ByteBuffer.wrap(decResRaw);
 					decTmp.get(decResRaw, 0, len);
-					//enc.position(0);
-					underChannel.setSupported();
-					underChannel.position(0);
-					ce.position(0);
-					//ce.read(decRes);
 					Assert.assertTrue(decRes.equals(dec));
-					underChannel.reset();
+					//underChannel.reset();
 				}
 			}
 		}
 		
 		UnsupportedTest ut = new UnsupportedTest();
 		ut.testWrite(ce, underChannel);
+		//ut.testRead(ce, underChannel);
+		//
+		underChannel.setSupported();
+		underChannel.position(0);
+		ce = getSeekableByteChannelEncrypted(underChannel, "AES/CBC/PKCS5Padding", 8);
 		//ut.testRead(ce, underChannel);
 		//=== no padding ===
 		underChannel = getUnderChannelListUnsupported();
