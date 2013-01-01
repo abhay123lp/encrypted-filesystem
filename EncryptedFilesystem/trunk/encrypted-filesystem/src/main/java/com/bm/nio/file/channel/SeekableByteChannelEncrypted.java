@@ -626,14 +626,17 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 				//load to buffer if required
 				// === 2 - load new block. Continue if load is not supported (write only)
 				positionInternal(newPosition);
+				int amt = 0;
 				try {
 					//loadBlock(mDecPos);
-					if (loadBlock(mDecPos, BlockOperationOptions.STOPONPOSITIONERROR) == -1)
+					amt = loadBlock(mDecPos, BlockOperationOptions.STOPONPOSITIONERROR);
+					if (amt == -1)
 						throw ue;
 				} catch (GeneralSecurityException e) {
 					//throw new IOException("Unable to set new position: unable to decrypt");
 				}
 				// === 3 - set new enc position.
+				//TODO: Consider leaving position at the end
 				try {
 					mChannel.position(posEnc);
 				} catch (UnsupportedOperationException e) {
@@ -742,8 +745,11 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			
 			// === block overflow ===
 			//start
-			dst.put(block, blockPos, remains);
-			positionInternal(mDecPos + remains);
+			//if (blockPos != 0){//if new block (==0) then skip this and go loading to the middle
+				dst.put(block, blockPos, remains);
+				positionInternal(mDecPos + remains);
+			//}
+
 			//middle
 			while(dst.remaining() > decBlockSize){
 				try {
