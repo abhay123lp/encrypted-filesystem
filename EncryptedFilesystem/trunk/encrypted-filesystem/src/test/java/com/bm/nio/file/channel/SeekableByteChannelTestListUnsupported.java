@@ -103,6 +103,16 @@ public class SeekableByteChannelTestListUnsupported extends SeekableByteChannelT
 			throw new UnsupportedOperationException();
 		}
 		
+		public int readNoChange(ByteBuffer dst) throws IOException {
+			//if (!isSupported(READ))
+			//	throw new UnsupportedOperationException();
+			long pos = super.position();
+			super.position(0);
+			int amt = super.read(dst);
+			super.position(pos);
+			return amt;
+		}
+		
 		long mSize = 0;
 		
 		//long mPosition = 0;

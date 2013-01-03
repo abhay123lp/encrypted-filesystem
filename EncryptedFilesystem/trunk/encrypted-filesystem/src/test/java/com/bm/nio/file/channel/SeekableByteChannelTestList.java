@@ -54,9 +54,15 @@ public class SeekableByteChannelTestList implements SeekableByteChannel {
 		public int read(ByteBuffer dst) throws IOException {
 			//mBuf.position(0);
 			//int len = dst.remaining();
-			int len = (int)Math.min(dst.remaining(), mSize);
+			long left = mSize - mBuf.position();
+			if (left <= 0)
+				return -1;
+			int len = (int)Math.min(dst.remaining(), left);
 			dst.put(mBufRaw, mBuf.position(), len);
 			mBuf.position(mBuf.position() + len);
+//			int len = (int)Math.min(dst.remaining(), mSize);
+//			dst.put(mBufRaw, mBuf.position(), len);
+//			mBuf.position(mBuf.position() + len);
 			return len;
 		}
 		

@@ -26,8 +26,6 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.bm.nio.file.stream.OutputStreamCrypto;
-import com.bm.nio.file.utils.Crypter;
 import com.sun.nio.zipfs.ZipFileSystem;
 import com.sun.nio.zipfs.ZipFileSystemProvider;
 import com.sun.nio.zipfs.ZipPath;
@@ -225,29 +223,29 @@ public class FileSystemEncryptedTest {
 	}
 	
 	//@Test
-	public void crypterTest() throws Exception{
-//        Crypter decrypter = new Crypter("t5fbrxrb");
-//        String encrypted = decrypter.encrypt("12345");//decrypter.encrypt("the quick brown fox jumps over the lazy dog");
-//        String decrypted = decrypter.decrypt(encrypted);
-//        System.out.println(decrypted);
-		String text = "12345678901234567890";
-		HashMap<String, Object> props = new HashMap<String, Object>();
-		props.put(OutputStreamCrypto.BLOCK_SIZE, new Integer(8));
-		props.put(OutputStreamCrypto.PASSWORD, "pwd".toCharArray());
-		ByteOutputStream bo = new ByteOutputStream();
-		
-		OutputStreamCrypto os = new OutputStreamCrypto(bo, props);
-		os.write(text.getBytes());
-		os.close();
-		//-------
-		String res = new String(bo.getBytes(), 0, bo.getCount());
-		System.out.println(res);
-		System.out.println("Encrypted Data " + DatatypeConverter.printHexBinary(bo.getBytes()));
-		//7E6FFA1B8478C294766DF81D827AC09A7865F01F827AC09A0
-		//7E6FFA1B8478C294ADC05465B7788091C01B83944D9DC915DA2FE570
-		//7E6FFA1B8478C294ADC05465B7788091C01B8394
-		Assert.assertTrue(text.equals(res));
-	}
+//	public void crypterTest() throws Exception{
+////        Crypter decrypter = new Crypter("t5fbrxrb");
+////        String encrypted = decrypter.encrypt("12345");//decrypter.encrypt("the quick brown fox jumps over the lazy dog");
+////        String decrypted = decrypter.decrypt(encrypted);
+////        System.out.println(decrypted);
+//		String text = "12345678901234567890";
+//		HashMap<String, Object> props = new HashMap<String, Object>();
+//		props.put(OutputStreamCrypto.BLOCK_SIZE, new Integer(8));
+//		props.put(OutputStreamCrypto.PASSWORD, "pwd".toCharArray());
+//		ByteOutputStream bo = new ByteOutputStream();
+//		
+//		OutputStreamCrypto os = new OutputStreamCrypto(bo, props);
+//		os.write(text.getBytes());
+//		os.close();
+//		//-------
+//		String res = new String(bo.getBytes(), 0, bo.getCount());
+//		System.out.println(res);
+//		System.out.println("Encrypted Data " + DatatypeConverter.printHexBinary(bo.getBytes()));
+//		//7E6FFA1B8478C294766DF81D827AC09A7865F01F827AC09A0
+//		//7E6FFA1B8478C294ADC05465B7788091C01B83944D9DC915DA2FE570
+//		//7E6FFA1B8478C294ADC05465B7788091C01B8394
+//		Assert.assertTrue(text.equals(res));
+//	}
 	
 	@After
 	public void clean(){

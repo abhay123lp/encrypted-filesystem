@@ -430,7 +430,9 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 		// load block where pos is located in
 		synchronized (mLock) {
 			//load decrypted size in case under channel was updated 
-			long decSize = sizeInternal();
+			//long decSize = sizeInternal();
+			//TODO: consider using below
+			long decSize = mDecSize;
 			//
 			if (pos > decSize)
 				pos = decSize;
@@ -440,7 +442,8 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			if (currBlock == lastBlock)//last block - load part
 				len = getBlockPos(decSize, decBlockSize);
 			if (len == 0)
-				return 0;
+				//return 0;
+				len = decBlockSize; // load whole block if "pos" points to the first byte
 			long posEnc = currBlock * (long)encBlockSize;
 			try {
 				mChannel.position(posEnc);
@@ -459,18 +462,24 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 					readAmt = mChannel.read(bufEnc);
 					if (readAmt == -1)
 						break;
-				} finally {
 					readOverall += readAmt;
+				} finally {
+					//readOverall += readAmt;
 					end(bufEnc.remaining() > 0);
 				}
 			}
-			byte [] dec = decryptBlock(blockEnc, 0, lenEnc);
+			if (readOverall <= 0)
+				return 0;
+			byte [] dec = decryptBlock(blockEnc, 0, readOverall);
 			System.arraycopy(dec, 0, block, 0, dec.length);
+//			byte [] dec = decryptBlock(blockEnc, 0, lenEnc);
+//			System.arraycopy(dec, 0, block, 0, dec.length);
+			
 			//placing position back to the beginning of encrypted block
-			try {
-				mChannel.position(posEnc);
-			} catch (UnsupportedOperationException e) {
-			}
+//			try {
+//				mChannel.position(posEnc);
+//			} catch (UnsupportedOperationException e) {
+//			}
 			return dec.length;
 		}
 	}
@@ -524,7 +533,10 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 		// Decrypted: bockDec1|blockDec2|...|blockDecN|lastBlockDec
 		// save block where pos is located in
 		synchronized (mLock) {
-			long decSize = sizeInternal();
+			//changed at 02.01.2013 - otherwise size won't change in case of truncate
+			//because it will be always updated back
+			long decSize = mDecSize;
+			//long decSize = sizeInternal();
 			if (pos > decSize)
 				pos = decSize;
 			int len = decBlockSize;//getBlockPos(pos, decBlockSize);
@@ -637,13 +649,13 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 				}
 				// === 3 - set new enc position.
 				//TODO: Consider leaving position at the end
-				try {
-					mChannel.position(posEnc);
-				} catch (UnsupportedOperationException e) {
-					//don't care - if underlying channel does not support - use only this channel position
-					//change 31.12.2012 - do not change position if underlying channel does not support it
-					throw ue;
-				}
+//				try {
+//					mChannel.position(posEnc);
+//				} catch (UnsupportedOperationException e) {
+//					//don't care - if underlying channel does not support - use only this channel position
+//					//change 31.12.2012 - do not change position if underlying channel does not support it
+//					throw ue;
+//				}
 			} else{
 				//set position in plain data
 				positionInternal(newPosition);
@@ -723,6 +735,8 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			} catch (GeneralSecurityException e) {
 				//Do nothing as it was optional fill buffer at any read operation 
 			}
+			//TODO: consider using below
+			//long sizeDec = mDecSize;
 			long sizeDec = sizeInternal();
 			long remainsToEnd = sizeDec - mDecPos;//additional check how - much remains to read in this (dec) channel
 			int blockPos = getBlockPos(mDecPos, decBlockSize);
@@ -733,7 +747,7 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			if (remainsToEnd < remains && remainsToEnd < len){
 				dst.put(block, blockPos, (int) remainsToEnd);
 				positionInternal(mDecPos + remainsToEnd);
-				return len;
+				return (int)remainsToEnd;
 			}
 			// === no block overflow ===
 			//can fit within current block
@@ -795,17 +809,27 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			int newBlockPos = getBlockPos(size, decBlockSize);//position in latest truncated block
 			//check - if lucky and remainder decrypts to the same amount of bytes (usually for stream cipher)
 			//the same, if fits the end of block (newBlockPos == 0) no need to calculate last block
-			if (getEncAmt(newBlockPos) == newBlockPos || newBlockPos == 0){
+			if (newBlockPos == 0){
+			//if (getEncAmt(newBlockPos) == newBlockPos || newBlockPos == 0){
 				mDecSize = size;
 				mDecPos = size;
 				mChannel.truncate(posEnc + newBlockPos);
 				return this;
 			}
+			
+			//stream cypher - truncate every time
+			if (getEncAmt(newBlockPos) == newBlockPos){
+				mChannel.truncate(posEnc + newBlockPos);
+			}else
+			//block cipher
 			//not last block - need to truncate under channel
 			if (newBlock < lastBlock){
 				mChannel.truncate(posEnc + encBlockSize);
-				mChannel.position(posEnc);
+				//change 02.01.2012 - now position is put to the end of block
+				//mChannel.position(posEnc);
+				mChannel.position(posEnc + encBlockSize);
 			}
+			
 			//put dec position and size to the end of last block
 			mDecSize = posDec + decBlockSize;
 			mDecPos = mDecSize;
