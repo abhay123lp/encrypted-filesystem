@@ -52,7 +52,6 @@ public class SeekableByteChannelTestFixed implements SeekableByteChannel {
 			int len = Math.min(dst.remaining(), src.remaining());
 			while (src.hasRemaining()&&dst.hasRemaining())
 		         dst.put(src.get()); 
-			//dst.put(src);
 			return len;
 		}
 		

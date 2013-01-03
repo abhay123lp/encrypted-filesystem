@@ -32,12 +32,6 @@ import com.bm.nio.file.channel.SeekableByteChannelEncrypted;
 import com.bm.nio.file.channel.SeekableByteChannelTestFixed;
 import com.bm.nio.file.channel.SeekableByteChannelTestList;
 import com.bm.nio.file.channel.SeekableByteChannelTestListUnsupported;
-import com.bm.nio.file.stream.OutputStreamCrypto;
-import com.bm.nio.file.utils.Crypter;
-import com.sun.nio.zipfs.ZipFileSystem;
-import com.sun.nio.zipfs.ZipFileSystemProvider;
-import com.sun.nio.zipfs.ZipPath;
-import com.sun.xml.internal.messaging.saaj.util.ByteOutputStream;
 
 public class SeekableByteChannelEncryptedTest {
 	
@@ -56,7 +50,7 @@ public class SeekableByteChannelEncryptedTest {
 	private SeekableByteChannelEncrypted getSeekableByteChannelEncrypted(
 			SeekableByteChannel underChannel, String transformation, Integer blockSize) throws Exception {
 		HashMap<String, Object> props = new HashMap<String, Object>();
-		props.put(OutputStreamCrypto.BLOCK_SIZE, blockSize);
+		props.put(SeekableByteChannelEncrypted.EncryptedConfig.PLAIN_BLOCK_SIZE, blockSize);
 		props.put(SeekableByteChannelEncrypted.EncryptedConfig.TRANSFORMATION, transformation);
 		return new SeekableByteChannelEncrypted(underChannel, props);
 	}
@@ -122,28 +116,47 @@ public class SeekableByteChannelEncryptedTest {
 	
 	@Test
 	public void seekableByteChannelReadWriteTruncateTest() throws Exception{
-		//case1: 
-		SeekableByteChannelTestList underChannel = getUnderChannelList();
-		SeekableByteChannelEncrypted ce;
-		//
-		//=== with padding, 8 bytes dec block ===
-		ce = getSeekableByteChannelEncrypted(underChannel, "AES/CBC/PKCS5Padding", 8);
-		ce.write(ByteBuffer.wrap("12345678123556789".getBytes()));
-		ce.position(11);//correcting 5 to 4
-		ce.write(ByteBuffer.wrap("4".getBytes()));
-		//ce.close();
-		//ce.flush();
-		ce.position(0);
-		byte [] b = new byte [100];
-		int len = ce.read(ByteBuffer.wrap(b));
-		Assert.assertEquals("12345678123456789", new String(b, 0, len));
+		String [] transformations = new String [] {"AES/CBC/PKCS5Padding", "AES/CFB/NoPadding"};
+		for (String transformation : transformations){
+			//case1: 
+			SeekableByteChannelTestList underChannel = getUnderChannelList();
+			SeekableByteChannelEncrypted ce;
+			String txt = "12345678abccefghij";
+			String txtNew = "12345678abcdefghij";
+			//
+			//=== with padding, 8 bytes dec block ===
+			ce = getSeekableByteChannelEncrypted(underChannel, transformation, 8);
+			ce.write(ByteBuffer.wrap(txt.getBytes()));
+			ce.position(11);//correcting 5 to 4
+			ce.write(ByteBuffer.wrap("d".getBytes()));
+			//ce.close();
+			//ce.flush();
+			ce.position(0);
+			byte [] b = new byte [100];
+			int len = ce.read(ByteBuffer.wrap(b));
+			Assert.assertEquals(txtNew, new String(b, 0, len));
+			
+			//truncate before len --> 0
+			txtNew = txtNew.substring(8);
+			while ((txtNew = txtNew.substring(0, txtNew.length() - 1)).length() > 0){
+				ce.truncate(ce.size() - 1);
+				ce.position(8);
+				len = ce.read(ByteBuffer.wrap(b));
+				System.out.println(new String(b, 0, len));
+				Assert.assertEquals(txtNew, new String(b, 0, len));
+			}
+		}
 		
 		//check truncate
-		ce.truncate(16);
-		ce.position(8);
-		len = ce.read(ByteBuffer.wrap(b));
-		//System.out.println(new String(b, 0, len));
-		Assert.assertEquals("12345678", new String(b, 0, len));
+//		ce.truncate(17);
+//		ce.position(8);
+//		len = ce.read(ByteBuffer.wrap(b));
+//		Assert.assertEquals("123456789", new String(b, 0, len));
+//		
+//		ce.truncate(16);
+//		ce.position(8);
+//		len = ce.read(ByteBuffer.wrap(b));
+//		Assert.assertEquals("12345678", new String(b, 0, len));
 	}
 	
 	@Test
@@ -169,15 +182,21 @@ public class SeekableByteChannelEncryptedTest {
 				i = 0;
 				while (underChannel.next()){
 					i ++;
+					//init channels
+					underChannel.setSupported();
+					underChannel.position(0);
+					ce.position(0);//if not set then remaining of previous write will change the result
+					//
 					underChannel.setSupported(SeekableByteChannelTestListUnsupported.WRITE);
 					dec.position(0);
 					ce.write(dec);//write unsupported
 					//enable everything to read
-					underChannel.setSupported();
-					underChannel.position(0);
-					ce.position(0);//if not set then remaining of previous write will change the result
-					underChannel.read(enc);
-					underChannel.position(0);
+//					underChannel.setSupported();
+//					underChannel.position(0);
+//					ce.position(0);//if not set then remaining of previous write will change the result
+//					underChannel.read(enc);
+					underChannel.readNoChange(enc);//safe read without changing channel's state
+//					underChannel.position(0);
 					enc.position(0);
 					if (i == 1)
 						encFirst = SeekableByteChannelEncryptedTest.clone(enc);
@@ -208,7 +227,7 @@ public class SeekableByteChannelEncryptedTest {
 					byte [] decResRaw = new byte [len];
 					ByteBuffer decRes = ByteBuffer.wrap(decResRaw);
 					decTmp.get(decResRaw, 0, len);
-					Assert.assertTrue(decRes.equals(dec));
+					Assert.assertEquals(decRes, dec);
 					//underChannel.reset();
 				}
 			}
@@ -216,7 +235,7 @@ public class SeekableByteChannelEncryptedTest {
 		
 		UnsupportedTest ut = new UnsupportedTest();
 		ut.testWrite(ce, underChannel);
-		//ut.testRead(ce, underChannel);
+		ut.testRead(ce, underChannel);
 		//
 		underChannel.setSupported();
 		underChannel.position(0);
@@ -226,7 +245,7 @@ public class SeekableByteChannelEncryptedTest {
 		underChannel = getUnderChannelListUnsupported();
 		ce = getSeekableByteChannelEncrypted(underChannel, "AES/CFB/NoPadding", 8);
 		ut.testWrite(ce, underChannel);
-		//ut.testRead(ce, underChannel);
+		ut.testRead(ce, underChannel);
 	}
 	
 	public static ByteBuffer clone(ByteBuffer original) {
