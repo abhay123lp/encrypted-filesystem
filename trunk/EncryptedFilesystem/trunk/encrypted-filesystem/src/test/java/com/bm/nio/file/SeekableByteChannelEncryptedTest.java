@@ -142,7 +142,6 @@ public class SeekableByteChannelEncryptedTest {
 				ce.truncate(ce.size() - 1);
 				ce.position(8);
 				len = ce.read(ByteBuffer.wrap(b));
-				System.out.println(new String(b, 0, len));
 				Assert.assertEquals(txtNew, new String(b, 0, len));
 			}
 		}
