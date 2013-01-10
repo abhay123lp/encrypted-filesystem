@@ -743,7 +743,7 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			int remains = decBlockSize - blockPos;//remains from mDecPos to the end of block
 			int len = dst.remaining();//remains in dst.
 			//in case when not enough bytes remain in the channel 
-			//to reach either dst size (remainsToEnd < len) or block end (remainsToEnd < remains)
+			//to reach dst size (remainsToEnd < len) and block end (remainsToEnd < remains)
 			if (remainsToEnd < remains && remainsToEnd < len){
 				dst.put(block, blockPos, (int) remainsToEnd);
 				positionInternal(mDecPos + remainsToEnd);
@@ -807,8 +807,7 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			long posEnc = newBlock * (long)encBlockSize;
 			long posDec = newBlock * (long)decBlockSize;
 			int newBlockPos = getBlockPos(size, decBlockSize);//position in latest truncated block
-			//check - if lucky and remainder decrypts to the same amount of bytes (usually for stream cipher)
-			//the same, if fits the end of block (newBlockPos == 0) no need to calculate last block
+			//if fits the end of block (newBlockPos == 0) no need to calculate last block, just cut in the end
 			if (newBlockPos == 0){
 			//if (getEncAmt(newBlockPos) == newBlockPos || newBlockPos == 0){
 				mDecSize = size;
@@ -822,7 +821,8 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 				mChannel.truncate(posEnc + newBlockPos);
 			}else
 			//block cipher
-			//not last block - need to truncate under channel
+			//no need to truncate last block, it will always have the same size 
+			//if not last block - need to truncate under channel
 			if (newBlock < lastBlock){
 				mChannel.truncate(posEnc + encBlockSize);
 				//change 02.01.2012 - now position is put to the end of block
