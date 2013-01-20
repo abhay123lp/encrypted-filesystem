@@ -20,6 +20,8 @@ import java.nio.file.spi.FileSystemProvider;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
 import java.util.zip.ZipFile;
 
 import javax.xml.bind.DatatypeConverter;
@@ -28,7 +30,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.bm.nio.file.channel.SeekableByteChannelEncrypted;
+import com.bm.nio.channels.SeekableByteChannelEncrypted;
 import com.bm.nio.file.channel.SeekableByteChannelTestFixed;
 import com.bm.nio.file.channel.SeekableByteChannelTestList;
 import com.bm.nio.file.channel.SeekableByteChannelTestListUnsupported;
@@ -53,8 +55,12 @@ public class SeekableByteChannelEncryptedTest {
 		props.put(SeekableByteChannelEncrypted.EncryptedConfig.PLAIN_BLOCK_SIZE, blockSize);
 		props.put(SeekableByteChannelEncrypted.EncryptedConfig.TRANSFORMATION, transformation);
 		return new SeekableByteChannelEncrypted(underChannel, props);
+//		SeekableByteChannelEncrypted ce = SeekableByteChannelEncrypted.getChannel(underChannel);
+//		if (ce != null && ce.isOpen())
+//			ce.close();
+//		return SeekableByteChannelEncrypted.newChannel(underChannel, props);
 	}
-	
+
 	@Test
 	public void sizeDecryptedTest() throws Exception {
 		SeekableByteChannelTestFixed underChannel = getUnderChannelFixed();
@@ -160,10 +166,8 @@ public class SeekableByteChannelEncryptedTest {
 	
 	@Test
 	public void seekableByteChannelUnsupportedTest() throws Exception{
-		//TODO:
 		SeekableByteChannelTestListUnsupported underChannel;
 		SeekableByteChannelEncrypted ce;
-		int i = 0;
 		//
 		//=== with padding, 8 bytes dec block ===
 		underChannel = getUnderChannelListUnsupported();
@@ -235,15 +239,20 @@ public class SeekableByteChannelEncryptedTest {
 		UnsupportedTest ut = new UnsupportedTest();
 		ut.testWrite(ce, underChannel);
 		ut.testRead(ce, underChannel);
-		//
+		//only read, from the beginning
 		underChannel.setSupported();
 		underChannel.position(0);
 		ce = getSeekableByteChannelEncrypted(underChannel, "AES/CBC/PKCS5Padding", 8);
-		//ut.testRead(ce, underChannel);
+		ut.testRead(ce, underChannel);
 		//=== no padding ===
 		underChannel = getUnderChannelListUnsupported();
 		ce = getSeekableByteChannelEncrypted(underChannel, "AES/CFB/NoPadding", 8);
 		ut.testWrite(ce, underChannel);
+		ut.testRead(ce, underChannel);
+		//only read, from the beginning
+		underChannel.setSupported();
+		underChannel.position(0);
+		ce = getSeekableByteChannelEncrypted(underChannel, "AES/CFB/NoPadding", 8);
 		ut.testRead(ce, underChannel);
 	}
 	
@@ -259,7 +268,79 @@ public class SeekableByteChannelEncryptedTest {
 	@Test
 	public void seekableByteChannelParallelTest() throws Exception{
 		//TODO:
-	}	
+		String [] transformations = new String [] {"AES/CBC/PKCS5Padding", "AES/CFB/NoPadding"};
+		for (final String transformation : transformations){
+			//init
+			final SeekableByteChannelTestList underChannel = getUnderChannelList();
+			//SeekableByteChannelEncrypted ce;
+			String txt = "12345678abccefghij";
+			final ByteBuffer data = ByteBuffer.wrap(txt.getBytes());
+			//
+			//=== with padding, 8 bytes dec block ===
+			final int THREADS_CNT = 13;
+			final CyclicBarrier starter = new CyclicBarrier(THREADS_CNT);
+			final CyclicBarrier stopper = new CyclicBarrier(THREADS_CNT + 1);
+			final SeekableByteChannelEncrypted ce = getSeekableByteChannelEncrypted(underChannel, transformation, 8);
+			for (int i = 0; i < THREADS_CNT; i ++){
+				new Thread(){
+					@Override
+					public void run() {
+						try {
+							System.out.println("waiting " + this.getId());
+							starter.await();
+							// do work
+							//SeekableByteChannelEncrypted ce = getSeekableByteChannelEncrypted(underChannel, transformation, 8);
+							byte b;
+							while (true){
+							synchronized (data) {
+								if (data.position() == data.capacity())
+									break;
+								b = data.get();
+							}
+								ce.write(ByteBuffer.wrap(new byte [] {b}));
+								Thread.yield();
+							}
+							//ce.close();
+							//
+							System.out.println("finished " + this.getId());
+							stopper.await();
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+					};
+				}.start();
+			}
+			
+			stopper.await();
+			System.out.println("finished All");
+			SeekableByteChannelEncrypted ce1 = getSeekableByteChannelEncrypted(underChannel, transformation, 8);
+			ByteBuffer bb = ByteBuffer.allocate(data.capacity());
+			ce1.read(bb);
+			System.out.println(new String(bb.array()));
+			
+			/*
+			
+			ce = getSeekableByteChannelEncrypted(underChannel, transformation, 8);
+			ce.write(ByteBuffer.wrap(txt.getBytes()));
+			ce.position(11);//correcting 5 to 4
+			ce.write(ByteBuffer.wrap("d".getBytes()));
+			//ce.close();
+			//ce.flush();
+			ce.position(0);
+			byte [] b = new byte [100];
+			int len = ce.read(ByteBuffer.wrap(b));
+			Assert.assertEquals(txtNew, new String(b, 0, len));
+			
+			//truncate before len --> 0
+			txtNew = txtNew.substring(8);
+			while ((txtNew = txtNew.substring(0, txtNew.length() - 1)).length() > 0){
+				ce.truncate(ce.size() - 1);
+				ce.position(8);
+				len = ce.read(ByteBuffer.wrap(b));
+				Assert.assertEquals(txtNew, new String(b, 0, len));
+			}*/
+		}		
+	}
 	
 //	@Test
 //	public void seekableByteChannelTest() throws Exception{

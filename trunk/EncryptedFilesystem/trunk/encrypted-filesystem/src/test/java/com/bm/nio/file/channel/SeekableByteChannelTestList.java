@@ -13,19 +13,19 @@ import com.sun.nio.zipfs.ZipFileSystem;
 public class SeekableByteChannelTestList implements SeekableByteChannel {
 		
 		@Override
-		public boolean isOpen() {
+		public synchronized boolean isOpen() {
 			return true;
 		}
 		
 		@Override
-		public void close() throws IOException {
+		public synchronized void close() throws IOException {
 			
 		}
 		
 		byte [] mBufRaw = new byte [10000];
 		ByteBuffer mBuf = ByteBuffer.wrap(mBufRaw);
 		@Override
-		public int write(ByteBuffer src) throws IOException {
+		public synchronized int write(ByteBuffer src) throws IOException {
 			int len = src.remaining();
 			mBuf.put(src);
 //			byte [] buf = new byte [src.remaining()];
@@ -38,7 +38,7 @@ public class SeekableByteChannelTestList implements SeekableByteChannel {
 		}
 		
 		@Override
-		public SeekableByteChannel truncate(long size) throws IOException {
+		public synchronized SeekableByteChannel truncate(long size) throws IOException {
 			mSize = size;
 			mBuf.position((int)size);
 			//mPosition = 0;
@@ -46,12 +46,12 @@ public class SeekableByteChannelTestList implements SeekableByteChannel {
 		}
 		
 		@Override
-		public long size() throws IOException {
+		public synchronized long size() throws IOException {
 			return mSize;
 		}
 		
 		@Override
-		public int read(ByteBuffer dst) throws IOException {
+		public synchronized int read(ByteBuffer dst) throws IOException {
 			//mBuf.position(0);
 			//int len = dst.remaining();
 			long left = mSize - mBuf.position();
@@ -70,7 +70,7 @@ public class SeekableByteChannelTestList implements SeekableByteChannel {
 		
 		//long mPosition = 0;
 		@Override
-		public SeekableByteChannel position(long newPosition) throws IOException {
+		public synchronized SeekableByteChannel position(long newPosition) throws IOException {
 //			mPosition = newPosition;
 //			mBuf.position((int)mPosition);
 			mBuf.position((int)newPosition);
@@ -78,7 +78,7 @@ public class SeekableByteChannelTestList implements SeekableByteChannel {
 		}
 		
 		@Override
-		public long position() throws IOException {
+		public synchronized long position() throws IOException {
 			return mBuf.position();
 		}
 
