@@ -34,7 +34,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 
-import com.bm.nio.file.channel.SeekableByteChannelEncrypted;
+import com.bm.nio.channels.SeekableByteChannelEncrypted;
 
 
 
@@ -105,6 +105,7 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 			//Files.isReadable(underPath);
 			//Files.isWritable(underPath);
 			SeekableByteChannelEncrypted ch = new SeekableByteChannelEncrypted(Files.newByteChannel(underPath, options));
+			//SeekableByteChannelEncrypted ch = SeekableByteChannelEncrypted.newChannel(Files.newByteChannel(underPath, options));
 			if (options.contains(StandardOpenOption.APPEND))
 				ch.position(ch.size());
 			return ch;
