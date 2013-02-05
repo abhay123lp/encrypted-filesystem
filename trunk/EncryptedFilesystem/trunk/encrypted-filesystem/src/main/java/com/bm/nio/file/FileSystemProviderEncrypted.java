@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
+import java.nio.channels.Channel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.AccessMode;
 import java.nio.file.CopyOption;
@@ -35,6 +36,7 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import com.bm.nio.channels.SeekableByteChannelEncrypted;
+import com.sun.nio.zipfs.ZipFileSystemProvider;
 
 
 
@@ -104,11 +106,16 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 			//underPath.getFileSystem().provider().checkAccess(underPath, AccessMode.READ);
 			//Files.isReadable(underPath);
 			//Files.isWritable(underPath);
-			SeekableByteChannelEncrypted ch = new SeekableByteChannelEncrypted(Files.newByteChannel(underPath, options));
-			//SeekableByteChannelEncrypted ch = SeekableByteChannelEncrypted.newChannel(Files.newByteChannel(underPath, options));
-			if (options.contains(StandardOpenOption.APPEND))
-				ch.position(ch.size());
-			return ch;
+			//SeekableByteChannelEncrypted ch = new SeekableByteChannelEncrypted(Files.newByteChannel(underPath, options));
+			synchronized (this) {
+				final SeekableByteChannel uch = Files.newByteChannel(underPath, options);
+				SeekableByteChannelEncrypted ch = SeekableByteChannelEncrypted.getChannel(uch);
+				if (ch == null)
+					ch = SeekableByteChannelEncrypted.newChannel(uch);
+				if (options.contains(StandardOpenOption.APPEND))
+					ch.position(ch.size());
+				return ch;
+			}
 		} catch (GeneralSecurityException e) {
 			throw new IOException(e);
 		}
@@ -157,7 +164,7 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
                 realPath = path.toRealPath();
                 //if (filesystems.containsKey(realPath))
                 if (getFileSystemInternal(realPath) != null)
-                    throw new FileSystemAlreadyExistsException();
+                    throw new FileSystemAlreadyExistsException("Path: " + path);
             } else
             	throw new InvalidPathException(path.toString(), path + " can not be used as encrypted storage");
             FileSystemEncrypted encfs = null;
@@ -168,13 +175,21 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	}
 	
 	/**
+	 * @param p - encrypted filesystem, encrypted:file:///D:/enc1
+	 * @return filesystem, or null if not found
+	 * <p> See {@link #getFileSystemInternal(Path)}
+	 */
+	protected FileSystemEncrypted getFileSystemInternal(PathEncrypted p){
+		return getFileSystemInternal(((PathEncrypted)p).getUnderPath());
+	}
+	/**
 	 * Find path in filesystem and return encrypted filesystem if already exists 
 	 * Path should be from underlying filesystem 
 	 * @param p - underlyng path, D:/enc1 or D:/enc1.zip
-	 * @return
-	 * <p> See {@link #getFileSystemInternal(URI)}}
-	 * Covered +
+	 * @return filesystem, or null if not found
+	 * <p> See {@link #getFileSystemInternal(URI)}
 	 */
+	//Covered +
 	protected FileSystemEncrypted getFileSystemInternal(Path p){
 		//should find root folder 
 		final Entry<Path, FileSystemEncrypted> h = filesystems.ceilingEntry(p);
@@ -295,32 +310,51 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 			if (e.getValue().equals(fs))
 				toRemove.add(e.getKey());
 		}
-		for (Path p : toRemove)
-			filesystems.remove(p);
-			
+		synchronized (filesystems) {
+			for (Path p : toRemove)
+				filesystems.remove(p);
+		}
 	}
 	
 	@Override
 	public DirectoryStream<Path> newDirectoryStream(Path dir,
 			Filter<? super Path> filter) throws IOException {
+		//TODO:
 		return new DirectoryStreamEncrypted();
 	}
 
 	@Override
 	public void createDirectory(Path dir, FileAttribute<?>... attrs)
 			throws IOException {
+		//TODO:
 	}
 
+	/**
+	 * @param path - encrypted path (encrypted:file:///D:/enc1/dir)
+	 * @throws IOException
+	 */
 	@Override
 	public void delete(Path path) throws IOException {
+		if (!(path instanceof PathEncrypted))
+			throw new ProviderMismatchException();
+		final PathEncrypted p = (PathEncrypted)path;
+		FileSystemEncrypted fs = getFileSystemInternal(p);
+		if (fs == null)
+			throw new FileSystemNotFoundException();
+		fs.delete(p);
+		//ZipFileSystemProvider zs; zs.delete(path)
 	}
 
 	
-	private byte [] copyBuffer = new byte [4*1024];
-	private ByteBuffer copyBufferB = ByteBuffer.wrap(copyBuffer);
+	//private byte [] copyBuffer = new byte [4*1024];
+	//private ByteBuffer copyBufferB = ByteBuffer.wrap(copyBuffer);
 	@Override
 	public void copy(Path source, Path target, CopyOption... options)
 			throws IOException {
+		//making threadsafe. There is more sophisticated way using new buffer with weak refs for every concurrent thread
+		final byte [] copyBuffer = new byte [4*1024];
+		final ByteBuffer copyBufferB = ByteBuffer.wrap(copyBuffer);
+		
 		final Set<OpenOption> srcOpts = new HashSet<>();
 		srcOpts.add(StandardOpenOption.READ);
 		final Set<OpenOption> trgOpts = new HashSet<>();
@@ -331,12 +365,14 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 		while (srcChannel.read(copyBufferB) > 0){
 			trgChannel.write(copyBufferB);
 		}
+		//ZipFileSystemProvider zp; zp.copy(src, target, options)
 		
 	}
 
 	@Override
 	public void move(Path source, Path target, CopyOption... options)
 			throws IOException {
+		//TODO: implement later
 		throw new UnsupportedOperationException();
 		
 	}

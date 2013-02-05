@@ -101,11 +101,11 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 	}
 	// === ===
 	
-    public SeekableByteChannelEncrypted(SeekableByteChannel channel) throws GeneralSecurityException {
+    protected SeekableByteChannelEncrypted(SeekableByteChannel channel) throws GeneralSecurityException {
         this(channel, new HashMap<String, Object>());
     }
 	
-    public SeekableByteChannelEncrypted(SeekableByteChannel channel, Map<String, ?> props, Cipher c) throws GeneralSecurityException {
+    protected SeekableByteChannelEncrypted(SeekableByteChannel channel, Map<String, ?> props, Cipher c) throws GeneralSecurityException {
     	//TODO:
     	if (props == null)
     		props = new HashMap<String, Object>();
@@ -473,6 +473,7 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			}
 			if (readOverall <= 0)
 				return 0;
+
 			byte [] dec = decryptBlock(blockEnc, 0, readOverall);
 			System.arraycopy(dec, 0, block, 0, dec.length);
 //			byte [] dec = decryptBlock(blockEnc, 0, lenEnc);
@@ -762,7 +763,7 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 					if (amt != -1)//if not -1 then position is allowed thus assuming that everything was red correctly
 						return (int)remainsToEnd;
 					amt = loadBlock(mDecPos);
-					if (amt == -1)//if can't read anyway - it means end of under channel is reached
+					if (amt <= 0)//if can't read anyway - it means end of under channel is reached
 						return (int)remainsToEnd;
 					if (getBlockPos(mDecPos, decBlockSize) != 0)//
 						throw new IOException("Unable to read: last block is not aligned ending at position " + mDecPos);
