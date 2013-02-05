@@ -116,7 +116,6 @@ public class FileSystemEncrypted extends FileSystem {
 
 	
 	private boolean isClosed = false;
-	//TOTEST
 	@Override
 	public synchronized void close() throws IOException {
 		// TODO remove itself from filesystemprovider
@@ -130,6 +129,23 @@ public class FileSystemEncrypted extends FileSystem {
 		return !isClosed;
 	}
 
+	/**
+	 * @param path - encrypted path, encrypted:file:///D:/enc1/dir
+	 * do not check since used internally, assume path belongs to this filesystem
+	 */
+	protected void delete(PathEncrypted path) throws IOException {
+		//if (!path.equals(mRoot))
+		//delete filesystem
+		//TODO:
+		synchronized (this) {
+			Files.delete(path.getUnderPath());
+			if (path.equals(mRoot)) {
+				close();
+			}
+		}
+		//delete some file within filesystem
+	}
+	
 	@Override
 	public boolean isReadOnly() {
 		// TODO Auto-generated method stub

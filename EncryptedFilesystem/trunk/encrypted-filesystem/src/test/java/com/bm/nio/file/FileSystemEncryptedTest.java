@@ -60,7 +60,6 @@ public class FileSystemEncryptedTest {
 			
 			
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} 
 		
@@ -128,6 +127,8 @@ public class FileSystemEncryptedTest {
 		for (FileSystemProvider fsp : FileSystemProvider.installedProviders())
 			found = found || fsp.getScheme().equals(scheme);
 		Assert.assertTrue(found);
+		//
+		clean();
 	}
 	
 	
@@ -209,6 +210,8 @@ public class FileSystemEncryptedTest {
 			e.printStackTrace();
 		} catch (URISyntaxException e) {
 			e.printStackTrace();
+		} finally{
+			clean();
 		}
 		
 		//TODO: in progress - test creation of encrypted properties file
@@ -221,6 +224,23 @@ public class FileSystemEncryptedTest {
 //			e.printStackTrace();
 //		}
 	}
+	
+	@Test
+	public void deleteTest() throws Exception {
+		//TODO:
+		//create and delete encrypted folders and files
+//		try {
+//			FileSystemProviderEncrypted fpe = mFspe;
+//			for (int i = 0; i < 10; i ++){
+//				String basePath = sandboxPath + "/enc" + i;
+//				newTempFieSystem(fpe, basePath);
+//			}
+//		} catch (Exception e) {
+//			throw e;
+//		} finally{
+//			clean();
+//		}
+	}	
 	
 	//@Test
 //	public void crypterTest() throws Exception{
@@ -252,6 +272,9 @@ public class FileSystemEncryptedTest {
 		File f = new File(sandboxPath);
 		if (f.isDirectory())
 			deleteFolderContents(f);
+		//TODO: remove from filesystem, not directory directly!
+		//FileSystemProviderEncrypted fpe = mFspe;
+		//fpe.
 	}
 	
 	public static void deleteFolderContents(File folder) {
