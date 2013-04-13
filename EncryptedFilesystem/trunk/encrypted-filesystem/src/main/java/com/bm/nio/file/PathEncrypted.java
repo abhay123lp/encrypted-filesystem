@@ -3,15 +3,22 @@ package com.bm.nio.file;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.ProviderMismatchException;
+import java.nio.file.DirectoryStream.Filter;
 import java.nio.file.WatchEvent.Kind;
 import java.nio.file.WatchEvent.Modifier;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.Iterator;
 
+import com.sun.nio.zipfs.ZipDirectoryStream;
 import com.sun.nio.zipfs.ZipPath;
 
 /**
@@ -21,21 +28,39 @@ import com.sun.nio.zipfs.ZipPath;
 public class PathEncrypted implements Path {
 
 	private final FileSystemEncrypted pFs;
-	private final Path mPath;
+	private final Path mUnderPath;
 	/**
 	 * @param fs - encrypted filesystem (i.e. folder of zip file etc.)
 	 * @param path - underlying path (belongs to underlying filesystem)
 	 */
-	protected PathEncrypted(FileSystemEncrypted fs, Path path){
+	protected PathEncrypted(FileSystemEncrypted fs, Path path) throws InvalidPathException {
 		pFs = fs;
-		mPath = path;
+		mUnderPath = path;
+		if (!validate(path))
+			throw new InvalidPathException(path.toString(), "Path " + path.toString() + " is not encrypted path");
+	}
+	
+	private static boolean validate(Path path){
+		for (int i = 0; i < path.getNameCount(); i ++){
+			String name = path.getName(i).getFileName().toString();
+			//TODO: consider validating path to have encrypted name and throw exception if not. ()
+		}
+			
+		return true;
 	}
 	
 	/**
-	 * @return underlying path, i.e. D;\enc1
+	 * @return underlying path, i.e. D:\enc1
 	 */
 	protected Path getUnderPath(){
-		return mPath;
+		return mUnderPath;
+	}
+	
+	/**
+	 * @return path with decrypted names, equals to underlying path, i.e. D:\fa987
+	 */
+	public Path getDecryptedPath(){
+		return mUnderPath;
 	}
 	
 	//+ Done
@@ -73,17 +98,25 @@ public class PathEncrypted implements Path {
 	public String toString() {
 		if (this.isAbsolute())
 			//TODO consider returning decrypted path
-			return mPath.toString();
+			return mUnderPath.toString();
 		else
-			return mPath.toString();
+			return mUnderPath.toString();
 	}
 	
 	@Override
-	public FileSystem getFileSystem() {
-		// TODO Auto-generated method stub
-		return null;
+	public FileSystemEncrypted getFileSystem() {
+		return pFs;
+	}
+	
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public <A extends BasicFileAttributes> A readAttributes(Class<A> type, LinkOption... options) throws IOException {
+		return (A) new FileAttributesEncrypted(Files.readAttributes(mUnderPath, type, options)); 
 	}
 
+    DirectoryStream<Path> newDirectoryStream(Filter<? super Path> filter) throws IOException {
+    		return new DirectoryStreamEncrypted(this, filter);
+        }
+	
 	@Override
 	public boolean isAbsolute() {
 		// TODO Auto-generated method stub
