@@ -17,6 +17,7 @@ import java.nio.file.FileSystemNotFoundException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
+import java.nio.file.NotDirectoryException;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -28,8 +29,10 @@ import java.nio.file.attribute.FileAttributeView;
 import java.nio.file.spi.FileSystemProvider;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -52,7 +55,7 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	public String getScheme() {
 		return "encrypted";
 	}
-
+	
 //	public void test(){
 //		for (Path p : filesystems.navigableKeySet())
 //			System.out.println(p);
@@ -102,7 +105,7 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 			throw new ProviderMismatchException();
 		//TODO:
 		try {
-			final Path underPath =  ((PathEncrypted)path).getUnderPath();
+			final Path underPath = ((PathEncrypted)path).getUnderPath();
 			//underPath.getFileSystem().provider().checkAccess(underPath, AccessMode.READ);
 			//Files.isReadable(underPath);
 			//Files.isWritable(underPath);
@@ -149,15 +152,16 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	
 	/**
 	 * @param path - underlyng path, D:/enc1 or D:/enc1.zip
-	 * @param env - list of parameters for the filesystem
+	 * @param env - list of parameters for the filesystem, See {@link FileSystemEncrypted.FileSystemEncryptedEnvParams}
 	 * @return
 	 * @throws IOException
 	 */
 	@Override
 	public FileSystem newFileSystem(Path path, Map<String, ?> env)
 			throws IOException {
-		//TODO: create configuration file
-		// or choose already existing one		
+		//TOD1O: create configuration file
+		// or choose already existing one
+		// configuration file is managed by filesystem!
         synchronized(filesystems) {
             Path realPath = null;
             if (validatePath(path)) {
@@ -316,11 +320,23 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 		}
 	}
 	
+	/**
+	 * @param dir - encrypted path (encrypted:file:///D:/enc1/dir)
+	 * @param filter
+	 * @return
+	 * @throws IOException
+	 */
 	@Override
 	public DirectoryStream<Path> newDirectoryStream(Path dir,
 			Filter<? super Path> filter) throws IOException {
-		//TODO:
-		return new DirectoryStreamEncrypted();
+		//TOD1O:
+		if (!(dir instanceof PathEncrypted))//analogy with other providers
+			throw new ProviderMismatchException();
+		if (!Files.isDirectory(dir))
+			throw new NotDirectoryException(dir.toString());
+		return ((PathEncrypted)dir).newDirectoryStream(filter);
+		
+		
 	}
 
 	@Override
@@ -369,6 +385,22 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 		
 	}
 
+//	public void getFileSystems(Collection<FileSystemEncrypted> fss){
+//		//consider using read lock
+//		for(Entry<Path, FileSystemEncrypted> e : filesystems.entrySet()){
+//			fss.add(e.getValue());
+//		}
+//	}
+//	
+	public Iterable<FileSystemEncrypted> getFileSystems(){
+		final List<FileSystemEncrypted> ar = new ArrayList<FileSystemEncrypted>();
+		//consider using read lock
+		for(Entry<Path, FileSystemEncrypted> e : filesystems.entrySet()){
+			ar.add(e.getValue());
+		}
+		return ar;
+	}
+	
 	@Override
 	public void move(Path source, Path target, CopyOption... options)
 			throws IOException {
@@ -408,11 +440,19 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 		return null;
 	}
 
+	/**
+	 * @param path - encrypted filesystem, encrypted:file:///D:/enc1
+	 * @param type
+	 * @param options
+	 * @return
+	 * @throws IOException
+	 */
 	@Override
 	public <A extends BasicFileAttributes> A readAttributes(Path path,
 			Class<A> type, LinkOption... options) throws IOException {
-		// TODO Auto-generated method stub
-		return null;
+		if (!(path instanceof PathEncrypted))//analogy with other providers
+			throw new ProviderMismatchException();
+		return ((PathEncrypted)path).readAttributes(type, options);
 	}
 
 	@Override

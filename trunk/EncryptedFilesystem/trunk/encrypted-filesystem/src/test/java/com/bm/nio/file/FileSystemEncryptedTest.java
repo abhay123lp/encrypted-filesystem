@@ -9,11 +9,16 @@ import java.net.URL;
 import java.nio.channels.ByteChannel;
 import java.nio.channels.Channels;
 import java.nio.channels.SeekableByteChannel;
+import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystemAlreadyExistsException;
 import java.nio.file.FileSystems;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.Collections;
 import java.util.HashMap;
@@ -26,6 +31,9 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
+import sun.nio.fs.WindowsFileSystemProvider;
+
+import com.bm.nio.file.utils.TestUtils;
 import com.sun.nio.zipfs.ZipFileSystem;
 import com.sun.nio.zipfs.ZipFileSystemProvider;
 import com.sun.nio.zipfs.ZipPath;
@@ -69,59 +77,59 @@ public class FileSystemEncryptedTest {
 	
 	String sandboxPath = "./src/test/sandbox/";
 	
-	private void delete(File file){
-		if (file.isFile())
-			file.delete();
-		if (file.isDirectory()){
-			for (File f : file.listFiles())
-				delete(f);
-			file.delete();
-		}
-	}
-	private File newTempDir(String path){
-		File dir = new File(path);
-		if (dir.exists())
-			//dir.delete();
-			delete(dir);
-		dir.mkdirs();
-		return dir;
-	}
+//	private void delete(File file){
+//		if (file.isFile())
+//			file.delete();
+//		if (file.isDirectory()){
+//			for (File f : file.listFiles())
+//				delete(f);
+//			file.delete();
+//		}
+//	}
+//	private File newTempDir(String path){
+//		File dir = new File(path);
+//		if (dir.exists())
+//			//dir.delete();
+//			delete(dir);
+//		dir.mkdirs();
+//		return dir;
+//	}
+//	
+//	private URI fileToURI(File f) throws IOException{
+//		return Paths.get(f.getCanonicalPath()).toUri();
+//	}
+//	
+//	private URI pathToURI(String path) throws IOException{
+//		return fileToURI(new File(path));
+//	}
+//	
+//	private URI uriEncrypted(URI u) throws URISyntaxException{
+//		return new URI("encrypted:" + u);
+//	}
 	
-	private URI fileToURI(File f) throws IOException{
-		return Paths.get(f.getCanonicalPath()).toUri();
-	}
+//	private FileSystem newTempFieSystem(FileSystemProviderEncrypted fpe, String path) throws IOException, URISyntaxException{
+//		File file = TestUtils.newTempDir(path); 
+//		//URI uri1File = Paths.get(file.getCanonicalPath()).toUri();
+//		URI uri1Encrypted = TestUtils.uriEncrypted(TestUtils.fileToURI(file));
+//		return fpe.newFileSystem(uri1Encrypted, new HashMap<String, Object>());
+//	}
+//	
+	private final FileSystemProviderEncrypted mFspe = TestUtils.getEncryptedProvider();
 	
-	private URI pathToURI(String path) throws IOException{
-		return fileToURI(new File(path));
-	}
-	
-	private URI uriEncrypted(URI u) throws URISyntaxException{
-		return new URI("encrypted:" + u);
-	}
-	
-	private FileSystem newTempFieSystem(FileSystemProviderEncrypted fpe, String path) throws IOException, URISyntaxException{
-		File file = newTempDir(path); 
-		//URI uri1File = Paths.get(file.getCanonicalPath()).toUri();
-		URI uri1Encrypted = uriEncrypted(fileToURI(file));
-		return fpe.newFileSystem(uri1Encrypted, new HashMap<String, Object>());
-	}
-	
-	private final FileSystemProviderEncrypted mFspe = getEncryptedProvider();
-	
-	private FileSystemProviderEncrypted getEncryptedProvider(){
-		final String scheme = new FileSystemProviderEncrypted().getScheme();
-		for (FileSystemProvider f : FileSystemProvider.installedProviders()){
-			if (f.getScheme().endsWith(scheme) && f instanceof FileSystemProviderEncrypted)
-				return (FileSystemProviderEncrypted)f;
-		}
-		return new FileSystemProviderEncrypted();
-	}
-	
+//	private FileSystemProviderEncrypted getEncryptedProvider(){
+//		final String scheme = new FileSystemProviderEncrypted().getScheme();
+//		for (FileSystemProvider f : FileSystemProvider.installedProviders()){
+//			if (f.getScheme().endsWith(scheme) && f instanceof FileSystemProviderEncrypted)
+//				return (FileSystemProviderEncrypted)f;
+//		}
+//		return new FileSystemProviderEncrypted();
+//	}
+//	
 	/**
 	 * Checks encrypted provider is among installed 
 	 */
 	@Test
-	public void listInstalled(){
+	public void listInstalled() throws IOException {
 		String scheme = new FileSystemProviderEncrypted().getScheme();
 		boolean found = false;
 		for (FileSystemProvider fsp : FileSystemProvider.installedProviders())
@@ -136,7 +144,7 @@ public class FileSystemEncryptedTest {
 	 * Test functions of creating and getting filesystems
 	 */
 	@Test
-	public void newGetCloseFilesystem(){
+	public void newGetCloseFilesystem() throws IOException {
 
 		FileSystemProviderEncrypted fpe = mFspe;
 		
@@ -154,11 +162,11 @@ public class FileSystemEncryptedTest {
 //			URI uriFile = p.toUri();
 //			URI uriEncrypted = new URI("encrypted:" + uriFile);
 			for (int i = 0; i < 100; i ++)
-				newTempFieSystem(fpe, sandboxPath + "/enc" + i);
+				TestUtils.newTempFieSystem(fpe, sandboxPath + "/enc" + i);
 			// === duplication ===
 			boolean duplicateError = false;
 			try {
-				newTempFieSystem(fpe, sandboxPath + "/enc3");
+				TestUtils.newTempFieSystem(fpe, sandboxPath + "/enc3");
 			} catch (FileSystemAlreadyExistsException e) {
 				duplicateError = true;
 			}
@@ -168,7 +176,7 @@ public class FileSystemEncryptedTest {
 			// === nested encrypted filesystem not allowed ===
 			boolean nestedException = false;
 			try {
-				newTempFieSystem(fpe, sandboxPath + "/enc3/dir");
+				TestUtils.newTempFieSystem(fpe, sandboxPath + "/enc3/dir");
 			} catch (FileSystemAlreadyExistsException e) {
 				nestedException = true;
 			}
@@ -176,9 +184,9 @@ public class FileSystemEncryptedTest {
 			// === nested - high level filesystem not allowed ===
 			nestedException = false;
 			try {
-				newTempFieSystem(fpe, sandboxPath + "/enc300/dir");
+				TestUtils.newTempFieSystem(fpe, sandboxPath + "/enc300/dir");
 				//TOD1O: implement this check in filesystemprovider!
-				newTempFieSystem(fpe, sandboxPath + "/enc300");
+				TestUtils.newTempFieSystem(fpe, sandboxPath + "/enc300");
 			} catch (FileSystemAlreadyExistsException e) {
 				nestedException = true;
 			}
@@ -186,8 +194,8 @@ public class FileSystemEncryptedTest {
 			// === === ===
 			
 			String encSubPath = sandboxPath + "/enc23/dir";
-			newTempDir(encSubPath);
-			FileSystem fs = fpe.getFileSystem(uriEncrypted(pathToURI(encSubPath)));
+			TestUtils.newTempDir(encSubPath);
+			FileSystem fs = fpe.getFileSystem(TestUtils.uriEncrypted(TestUtils.pathToURI(encSubPath)));
 			for (Path p : fs.getRootDirectories()){
 				Assert.assertTrue(p.toString().endsWith("enc23"));
 				//System.out.println(p);//D:\prog\workspace\encrypted-filesystem-trunk\src\test\sandbox\enc23
@@ -197,9 +205,9 @@ public class FileSystemEncryptedTest {
 			// === closing - should not be exception ===
 			boolean exception = false;
 			try {
-				FileSystem fsClose = newTempFieSystem(fpe, sandboxPath + "/encClose/dir");
+				FileSystem fsClose = TestUtils.newTempFieSystem(fpe, sandboxPath + "/encClose/dir");
 				fsClose.close();
-				newTempFieSystem(fpe, sandboxPath + "/encClose/dir");
+				TestUtils.newTempFieSystem(fpe, sandboxPath + "/encClose/dir");
 			} catch (Exception e) {
 				exception = true;
 			}
@@ -228,18 +236,73 @@ public class FileSystemEncryptedTest {
 	@Test
 	public void deleteTest() throws Exception {
 		//TODO:
+		//1st test: delete all filesystems by directory walker
+		//2nd test: create non-encrypted fordel and catch Directory not empty exception (delet should only tuch encrypted objects).
+		
 		//create and delete encrypted folders and files
-//		try {
-//			FileSystemProviderEncrypted fpe = mFspe;
-//			for (int i = 0; i < 10; i ++){
-//				String basePath = sandboxPath + "/enc" + i;
-//				newTempFieSystem(fpe, basePath);
+		try {
+			FileSystemProviderEncrypted fpe = mFspe;
+			
+			//TEST!
+//			Path path = mFspe.getFileSystems().iterator().next().getRootDirectories().iterator().next();
+//			DirectoryStream<Path> stream = fpe.newDirectoryStream(path, new DirectoryStream.Filter<Path>() {
+//
+//				@Override
+//				public boolean accept(Path entry) throws IOException {
+//					return true;
+//				}
+//			});
+//			for (Path p : stream){
+//				System.out.println(p);//null!!
 //			}
-//		} catch (Exception e) {
-//			throw e;
-//		} finally{
-//			clean();
-//		}
+			//
+			
+			// === deleting should not be exception ===
+			for (int i = 0; i < 10; i ++){
+				String basePath = sandboxPath + "/enc" + i;
+				TestUtils.newTempFieSystem(fpe, basePath);
+			}
+			
+			boolean exception = false;
+			try {
+					TestUtils.deleteFilesystems(fpe);
+					TestUtils.deleteFilesystems(fpe);//checking that filesystems are closed
+			} catch (Exception e) {
+				exception = true;
+			}
+			Assert.assertFalse(exception);
+			// === === ===
+			
+			// === deleting with not encrypted folder inside - should be exception (not encrypted won't be deleted) ===
+			for (int i = 0; i < 10; i ++){
+				String basePath = sandboxPath + "/enc" + i;
+				TestUtils.newTempFieSystem(fpe, basePath);
+			}
+			
+			File plain = TestUtils.newTempDir(sandboxPath + "/enc0/enc01");
+			
+			//TODO: should work correctly 
+			//when implemented encrypted name check (in DirectoryIteratorEncrypted.hasNext(), new PathEncrypted())
+			boolean passed = false;
+			try {
+				TestUtils.deleteFilesystems(fpe);
+			} catch (Exception e) {
+				TestUtils.delete(plain);//remove plain directory
+				try {
+					TestUtils.deleteFilesystems(fpe);
+					passed = true;//deletes correctly after plain is removed
+				} catch (Exception e2) {
+					
+				}
+			}
+			Assert.assertTrue(passed);
+			// === === ===
+			
+		} catch (Exception e) {
+			throw e;
+		} finally{
+			clean();
+		}
 	}	
 	
 	//@Test
@@ -268,13 +331,28 @@ public class FileSystemEncryptedTest {
 //	}
 	
 	@After
-	public void clean(){
+	public void clean() throws IOException {
+		//TODO: implement directory walker deletion (can take from delete() test)
+		//
+//		TestUtils.deleteFilesystems(mFspe);
 		File f = new File(sandboxPath);
 		if (f.isDirectory())
 			deleteFolderContents(f);
-		//TODO: remove from filesystem, not directory directly!
-		//FileSystemProviderEncrypted fpe = mFspe;
-		//fpe.
+		
+		//close filesystems
+		FileSystemProviderEncrypted fpe = mFspe;
+		for (FileSystemEncrypted fe : fpe.getFileSystems()){
+			fe.close();
+		}
+
+		//doesn't delete recursively :(
+//		FileSystemProviderEncrypted fpe = mFspe;
+//		for (FileSystemEncrypted fe : fpe.getFileSystems()){
+//			fe.delete();
+//		}
+		
+		//TOD1O: remove from filesystem, not directory directly!
+		//Correcting: remove should be done not from filesystem but using FileVisitor
 	}
 	
 	public static void deleteFolderContents(File folder) {

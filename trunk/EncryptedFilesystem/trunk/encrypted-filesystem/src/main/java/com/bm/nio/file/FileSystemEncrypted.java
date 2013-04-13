@@ -34,6 +34,12 @@ public class FileSystemEncrypted extends FileSystem {
 	
 	private Path mRoot;
 	private FileSystemProviderEncrypted mProvider; 
+	
+	public static final class FileSystemEncryptedEnvParams{
+		public static final String ENV_CONFIG_FILE = "env.config.file";
+	}
+	
+	private String configFile = "config.properties";
 	/**
 	 * @param provider
 	 * @param path - path of underlying filesystem, i.e. D:/enc1
@@ -47,7 +53,10 @@ public class FileSystemEncrypted extends FileSystem {
 		
 		//TODO: create common functions to encryps/decrypt file by password
 		//read encrypted properties from file
-		Path config = path.resolve("config.properties");
+		Object o = env.get(FileSystemEncryptedEnvParams.ENV_CONFIG_FILE);
+		if (o != null)
+			configFile = o.toString();
+		Path config = path.resolve(configFile);
 		if (!Files.exists(config))
 			Files.createFile(config);
     	mRoot = path.toAbsolutePath();
@@ -68,7 +77,7 @@ public class FileSystemEncrypted extends FileSystem {
 	 * @return - encrypted path
 	 * <p> See {@link #toEncrypted(URI)}
 	 */
-	protected Path toEncrypted(Path path){
+	protected PathEncrypted toEncrypted(Path path){
 		//TODO: create correct transformation 
 		//try {
 			//return Paths.get(new URI(provider().getScheme() + ":" + p.toUri()));
@@ -134,16 +143,18 @@ public class FileSystemEncrypted extends FileSystem {
 	 * do not check since used internally, assume path belongs to this filesystem
 	 */
 	protected void delete(PathEncrypted path) throws IOException {
-		//if (!path.equals(mRoot))
-		//delete filesystem
-		//TODO:
+		//DONE: test that deletes correctly
 		synchronized (this) {
 			Files.delete(path.getUnderPath());
-			if (path.equals(mRoot)) {
+			if (path.getUnderPath().equals(mRoot)) {//root was deleted - close
 				close();
 			}
 		}
 		//delete some file within filesystem
+	}
+	
+	public void delete() throws IOException {
+		this.delete(toEncrypted(mRoot));
 	}
 	
 	@Override
