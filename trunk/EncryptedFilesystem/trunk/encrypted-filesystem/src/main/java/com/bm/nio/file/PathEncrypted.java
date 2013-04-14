@@ -3,6 +3,7 @@ package com.bm.nio.file;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
@@ -16,6 +17,7 @@ import java.nio.file.WatchEvent.Modifier;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
+import java.security.GeneralSecurityException;
 import java.util.Iterator;
 
 import com.sun.nio.zipfs.ZipDirectoryStream;
@@ -27,26 +29,51 @@ import com.sun.nio.zipfs.ZipPath;
  */
 public class PathEncrypted implements Path {
 
-	private final FileSystemEncrypted pFs;
+	private final FileSystemEncrypted mFs;
 	private final Path mUnderPath;
 	/**
 	 * @param fs - encrypted filesystem (i.e. folder of zip file etc.)
 	 * @param path - underlying path (belongs to underlying filesystem)
 	 */
 	protected PathEncrypted(FileSystemEncrypted fs, Path path) throws InvalidPathException {
-		pFs = fs;
+		mFs = fs;
 		mUnderPath = path;
-		if (!validate(path))
+		if (!validateUnderPath(path))
 			throw new InvalidPathException(path.toString(), "Path " + path.toString() + " is not encrypted path");
 	}
 	
-	private static boolean validate(Path path){
-		for (int i = 0; i < path.getNameCount(); i ++){
-			String name = path.getName(i).getFileName().toString();
-			//TODO: consider validating path to have encrypted name and throw exception if not. ()
+	/**
+	 * @param path - underlying Path(file:///D:/enc1/F11A) or Path(file:///F11A)
+	 * @return
+	 */
+	private boolean validateUnderPath(Path path){
+		try {
+			mFs.decryptUnderPath(path);
+		} catch (GeneralSecurityException e1) {
+			return false;
 		}
-			
+//		if (!mFs.isSubPath(path))
+//			return false;
+//		//calculate encrypted path = F11A
+//		Path encPath = mFs.getRootDir().relativize(path);//= path - root
+//		for (int i = 0; i < encPath.getNameCount(); i ++){
+//			String encName = path.getName(i).getFileName().toString();
+//			try {
+//				mFs.decryptName(encName);
+//			} catch (GeneralSecurityException e) {
+//				return false;
+//			}
+//		}
 		return true;
+	}
+	
+	private void validatePath(Path path){
+		if (!(path instanceof PathEncrypted) ||
+				!path.getFileSystem().provider().getScheme().equals(
+				   this.getFileSystem().provider().getScheme()))
+			throw new ProviderMismatchException(path + " provider scheme mismatch");
+		if (!((PathEncrypted)path).getFileSystem().equals(this.getFileSystem()))
+			throw new IllegalArgumentException("File systems mismatch");
 	}
 	
 	/**
@@ -57,7 +84,7 @@ public class PathEncrypted implements Path {
 	}
 	
 	/**
-	 * @return path with decrypted names, equals to underlying path, i.e. D:\fa987
+	 * @return path with decrypted names, equals to underlying path, i.e. D:\F11A
 	 */
 	public Path getDecryptedPath(){
 		return mUnderPath;
@@ -68,7 +95,7 @@ public class PathEncrypted implements Path {
 	public boolean equals(Object obj) {
         return obj != null &&
                 obj instanceof PathEncrypted &&
-                this.pFs == ((PathEncrypted)obj).pFs &&
+                this.mFs == ((PathEncrypted)obj).mFs &&
                 compareTo((Path) obj) == 0;
 	}
 
@@ -105,7 +132,7 @@ public class PathEncrypted implements Path {
 	
 	@Override
 	public FileSystemEncrypted getFileSystem() {
-		return pFs;
+		return mFs;
 	}
 	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -119,116 +146,163 @@ public class PathEncrypted implements Path {
 	
 	@Override
 	public boolean isAbsolute() {
-		// TODO Auto-generated method stub
-		return false;
+		return mUnderPath.isAbsolute();
 	}
 
 	@Override
 	public Path getRoot() {
-		// TODO Auto-generated method stub
-		return null;
+		return mFs.toEncrypted(mFs.getRootDir());
 	}
 
 	@Override
 	public Path getFileName() {
-		// TODO Auto-generated method stub
-		return null;
+		return mFs.toEncrypted(mUnderPath.getFileName());
 	}
 
 	@Override
 	public Path getParent() {
-		// TODO Auto-generated method stub
-		return null;
+		if (mUnderPath.getParent() == null)
+			return null;
+		return mFs.toEncrypted(mUnderPath.getParent());
 	}
 
 	@Override
 	public int getNameCount() {
-		// TODO Auto-generated method stub
-		return 0;
+		//TOREVIEW
+		return mUnderPath.getNameCount();
 	}
 
 	@Override
 	public Path getName(int index) {
-		// TODO Auto-generated method stub
-		return null;
+		//TOREVIEW
+		return mFs.toEncrypted(mUnderPath.getName(index));
 	}
 
 	@Override
 	public Path subpath(int beginIndex, int endIndex) {
-		// TODO Auto-generated method stub
-		return null;
+		//TOREVIEW
+		return mFs.toEncrypted(mUnderPath.subpath(beginIndex, endIndex));
 	}
 
 	@Override
 	public boolean startsWith(Path other) {
-		// TODO Auto-generated method stub
-		return false;
+		//TOREVIEW
+		validatePath(other);
+		return mUnderPath.startsWith(((PathEncrypted)other).getUnderPath());
 	}
 
 	@Override
 	public boolean startsWith(String other) {
-		// TODO Auto-generated method stub
-		return false;
+		//TOREVIEW
+		return mUnderPath.startsWith(mFs.getPath(other));
 	}
 
 	@Override
 	public boolean endsWith(Path other) {
-		// TODO Auto-generated method stub
-		return false;
+		//TOREVIEW
+		validatePath(other);
+		return mUnderPath.endsWith(((PathEncrypted)other).getUnderPath());
 	}
 
 	@Override
 	public boolean endsWith(String other) {
-		// TODO Auto-generated method stub
-		return false;
+		//TOREVIEW
+		return mUnderPath.endsWith(mFs.getPath(other));
 	}
 
 	@Override
 	public Path normalize() {
-		// TODO Auto-generated method stub
-		return null;
+		return mFs.toEncrypted(mUnderPath.normalize());
 	}
 
+	/**
+	 * Adds other path to this path by below rules:<br>
+	 * Path(xxx).resolve(Path(D:/enc1/dir)) = Path(D:/enc1/dir)<br>
+	 * Path(xxx).resolve(Path()) = Path(xxx)<br>
+	 * Path(xxx).resolve(Path(/dir2)) = Path(xxx/dir2)<br>
+	 * @param other
+	 * @return
+	 */
 	@Override
 	public Path resolve(Path other) {
-		// TODO Auto-generated method stub
-		return null;
+		validatePath(other);
+		if (other.isAbsolute())
+			return other;
+		if (other.toString().length() == 0)
+			return this;
+		//resolve under path for both - then transform to encrypted
+		Path pathThis = this.getDecryptedPath();
+		Path pathOther = ((PathEncrypted)other).getDecryptedPath();
+		Path resolved = pathThis.resolve(pathOther);
+		return mFs.toEncrypted(resolved);
 	}
 
 	@Override
 	public Path resolve(String other) {
-		// TODO Auto-generated method stub
-		return null;
+		return resolve(mFs.getPath(other));
 	}
 
+	/**
+	 * Adds other path to this path's parent by below rules (xxx is a parent path):<br>
+	 * Path(xxx/enc1).resolve(Path(D:/enc1/dir)) = Path(D:/enc1/dir)<br>
+	 * Path(xxx/enc1).resolve(Path()) = Path(xxx)<br>
+	 * Path(xxx/enc1).resolve(Path(/dir2)) = Path(xxx/dir2)<br>
+	 * Path(xxx/enc1).resolve(Path(YYY)) = Path(YYY) if xxx == null<br>
+	 * @param other
+	 * @return
+	 */
 	@Override
 	public Path resolveSibling(Path other) {
-		// TODO Auto-generated method stub
-		return null;
+		if (other.isAbsolute())
+			return other;
+		if (other.toString().length() == 0)
+			return this.getParent();
+		if (this.getParent() == null)
+			return other;
+		
+		return this.getParent().resolve(other);
 	}
 
 	@Override
 	public Path resolveSibling(String other) {
-		// TODO Auto-generated method stub
-		return null;
+		return resolveSibling(mFs.getPath(other));
 	}
 
 	@Override
 	public Path relativize(Path other) {
-		// TODO Auto-generated method stub
-		return null;
+		//TOREVIEW
+		validatePath(other);
+		Path pathThis = this.getDecryptedPath();
+		Path pathOther = ((PathEncrypted)other).getDecryptedPath();
+		Path relative = pathThis.relativize(pathOther);
+		return mFs.toEncrypted(relative);
 	}
 
 	@Override
 	public URI toUri() {
-		// TODO Auto-generated method stub
-		return null;
+		URI res;
+		try {
+			//file:///D:/enc1/F11A --> file:///D:/enc1/dir
+			res = mFs.decryptUnderPath(mUnderPath).toUri();
+		} catch (GeneralSecurityException e) {
+			throw new RuntimeException("Unable to decode path " + mUnderPath, e);
+		}
+		
+		try {
+			//file:///D:/enc1/dir --> encrypted:file:///D:/enc1/dir
+			res = new URI(mFs.provider().getScheme(), res.toString(), null);
+		} catch (URISyntaxException e) {
+			throw new RuntimeException("Unable to derive from URI: " + res + " for path: " + mUnderPath, e);
+		}
+		return res;
 	}
 
 	@Override
 	public Path toAbsolutePath() {
-		// TODO Auto-generated method stub
-		return null;
+		if (this.isAbsolute())
+			return this;
+		else
+			return resolve(this);
 	}
 
 	@Override
@@ -240,8 +314,8 @@ public class PathEncrypted implements Path {
 
 	@Override
 	public File toFile() {
-		// TODO Auto-generated method stub
-		return null;
+		// TOREVIEW
+		return mUnderPath.toFile();
 	}
 
 	@Override

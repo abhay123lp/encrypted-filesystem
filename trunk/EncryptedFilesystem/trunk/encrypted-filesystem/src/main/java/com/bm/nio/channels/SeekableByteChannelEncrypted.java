@@ -919,16 +919,4 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			}
 		}
 	}
-//	@Override
-//	public void close() throws IOException {
-//		//TODO: flush from the buffer, 
-//		//... or alternatively flush it after each write operation
-//		mIsOpen = false;
-//	}
-//
-//	@Override
-//	public boolean isOpen() {
-//		return mIsOpen;
-//	}
-	
 }

@@ -20,6 +20,8 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.spi.FileSystemProvider;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -29,7 +31,9 @@ import javax.xml.bind.DatatypeConverter;
 
 import sun.nio.fs.WindowsFileSystemProvider;
 
+import com.bm.nio.file.FileAttributesEncrypted;
 import com.sun.nio.zipfs.ZipFileSystem;
+import com.sun.nio.zipfs.ZipFileSystemProvider;
 import com.sun.nio.zipfs.ZipPath;
 
 
@@ -40,7 +44,10 @@ public class Test {
 	 */
 	public static void main(String[] args) throws Exception {
 		// TODO Auto-generated method stub
-		new Test().testStartsForZip();
+		//new Test().testStartsForZip();
+		//new Test().testRelativeResolve();
+		//new Test().testFileName();
+		new Test().testIsAbsoluteResolve();
 	}
 	
 	public void testStartsForZip() throws Exception{
@@ -130,4 +137,64 @@ public class Test {
 		System.out.println(new String(bbrb));//should be 12345345
 		s.close();
 	}
+	
+	public void testRelativeResolve(){
+		String sa = "file:///D:/a/a";
+		String sb = "file:///D:/a/a/b";
+		URI ua = URI.create(sa);
+		URI ub = URI.create(sb);
+		Path a = Paths.get(ua);
+		Path b = Paths.get(ub);
+		System.out.println(sa + " vs " + sb);
+		System.out.println("Relativize: " + a.relativize(b));//= b - a 
+		System.out.println("Resolve: " + a.resolve(b));//= a + b
+		
+		System.out.println(ua.relativize(ub));
+	}
+	
+	public void testGetPath(){
+		ZipFileSystemProvider z = new ZipFileSystemProvider();
+		try {
+			z.newFileSystem(URI.create("jar:file:/zipfstest.zip!/BAR"), new HashMap());
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		Path p = z.getPath(URI.create("jar:file:/zipfstest.zip!/BAR/par"));
+		try {
+			Files.createDirectories(p);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		System.out.println(p.toString());
+	}
+
+	public void testFileName(){
+		String sa = "file:///D:/a/a";
+		String sb = "file:///D:/a/a/b/c";
+		URI ua = URI.create(sa);
+		URI ub = URI.create(sb);
+		Path a = Paths.get(ua);
+		Path b = Paths.get(ub);
+		Path part = a.relativize(b);
+		for (int i = 0; i < part.getNameCount(); i ++){
+			System.out.println(part.getName(i).toString() + part.getName(i).getFileName().toString());
+		}
+	}
+
+	public void testIsAbsoluteResolve(){
+		String sa = "file:///D:/a/a";
+		String sb = "file:///D:/a/a/b/c";
+		URI ua = URI.create(sa);
+		URI ub = URI.create(sb);
+		Path a = Paths.get(ua);
+		Path b = Paths.get(ub);
+		Path part = a.relativize(b);
+		System.out.println(part.isAbsolute());
+		System.out.println(b.resolve(part));
+		System.out.println(part.resolve(part));
+		System.out.println(part.resolve(b));
+	}
+
 }
