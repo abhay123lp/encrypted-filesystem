@@ -220,6 +220,8 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
      * @param uri - encrypted path, encrypted:file:///D:/enc1
      * @return Path in Underlying filesystem, Path(file:///D:/enc1)
      */
+    //IMPORTANT: it will return underlying path with DECRYPTED path name! 
+	//i.e.(file:///D:/enc1/dir, instead of file:///D:/enc1/F11A)
     protected Path uriToPath(URI uri) {
         String scheme = uri.getScheme();
         if ((scheme == null) || !scheme.equalsIgnoreCase(getScheme())) {
@@ -228,6 +230,7 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
         try { 
             // only support legacy URL syntax encrypted:{uri}
             String spec = uri.getSchemeSpecificPart();
+            
             return Paths.get(new URI(spec)).toAbsolutePath();
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException(e.getMessage(), e);
@@ -287,10 +290,10 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	}
 
 	
-	//Gets encrypted URI, encrypted:file:///D:/enc1/dir
+	//Gets encrypted URI, encrypted:file:///D:/enc1/dir  (corresponds to underlying file:///D:/enc1/F11A)
     //returns PathEncrypted, PathEncrypted(dir)
 	@Override
-	public Path getPath(URI uri) {
+	public Path getPath(URI uri){
 		//1
 		//final String underSpec = uri.getSchemeSpecificPart();//here underlying spec, like file://D:/enc1/dir
 		//final URI underUri = new URI(spec);//here underlying URI, like file://D:/enc1/dir
@@ -303,8 +306,18 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 		//3
 		//TOD1O: can be exception if no filesystem exists for thsi URI. Resolution - the same way works zip filesystem (correct for our case) 
 		//but windowsfilesystem can do that
-        return getFileSystemInternal(uri).toEncrypted(uri);
-		
+
+		//DONE: toEncrypted(uri) takes underlying URI, not encrypted!
+		Path lPath;
+		FileSystemEncrypted fs = getFileSystemInternal(uri);
+		lPath = uriToPath(uri);//Path(file:///D:/enc1/dir) - incorrect under path
+		try {
+			lPath = fs.encryptUnderPath(lPath);//Path(file:///D:/enc1/F11A)
+		} catch (GeneralSecurityException e) {
+			throw new RuntimeException("Unable to encode path " + lPath, e);
+		}
+		lPath = fs.toEncrypted(lPath);//Path(encrypted:file:///D:/enc1/dir)
+        return lPath;
 	}
 
 	

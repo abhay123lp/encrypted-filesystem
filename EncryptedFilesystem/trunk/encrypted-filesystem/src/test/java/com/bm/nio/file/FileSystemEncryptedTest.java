@@ -283,6 +283,7 @@ public class FileSystemEncryptedTest {
 			
 			//TODO: should work correctly 
 			//when implemented encrypted name check (in DirectoryIteratorEncrypted.hasNext(), new PathEncrypted())
+			
 			boolean passed = false;
 			try {
 				TestUtils.deleteFilesystems(fpe);
