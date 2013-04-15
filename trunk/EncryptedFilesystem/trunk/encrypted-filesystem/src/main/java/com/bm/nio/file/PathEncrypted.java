@@ -11,6 +11,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.ProviderMismatchException;
+import java.nio.file.ReadOnlyFileSystemException;
 import java.nio.file.DirectoryStream.Filter;
 import java.nio.file.WatchEvent.Kind;
 import java.nio.file.WatchEvent.Modifier;
@@ -19,6 +20,7 @@ import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.security.GeneralSecurityException;
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 import com.sun.nio.zipfs.ZipDirectoryStream;
 import com.sun.nio.zipfs.ZipPath;
@@ -77,14 +79,14 @@ public class PathEncrypted implements Path {
 	}
 	
 	/**
-	 * @return underlying path, i.e. D:\enc1
+	 * @return underlying path, i.e. D:\enc1\F11A or \F11A (relative path)
 	 */
 	protected Path getUnderPath(){
 		return mUnderPath;
 	}
 	
 	/**
-	 * @return path with decrypted names, equals to underlying path, i.e. D:\F11A
+	 * @return path with decrypted names, equals to underlying path, i.e. D:\enc1\F11A or \F11A (relative path)
 	 */
 	public Path getDecryptedPath(){
 		return mUnderPath;
@@ -99,16 +101,17 @@ public class PathEncrypted implements Path {
                 compareTo((Path) obj) == 0;
 	}
 
-	//TOTEST
+	//+ Done
 	@Override
 	public int compareTo(Path other) {
+		validatePath(other);
 		final Path o1 = this;
 		final Path o2 = other;
 		final int o1Cnt = o1.getNameCount();
 		final int o2Cnt = o2.getNameCount();
 		final int oMin = Math.min(o1Cnt, o2Cnt);
 		for (int i = 0; i < oMin; i ++){
-			final int compare = o1.getName(i).compareTo(o2.getName(i));
+			final int compare = o1.getName(i).toString().compareTo(o2.getName(i).toString());
 			if (compare != 0)
 				return compare;
 		}
@@ -120,14 +123,20 @@ public class PathEncrypted implements Path {
 			return -1;
 	}
 
-	//TOTEST
+	//+ Done
 	@Override
 	public String toString() {
-		if (this.isAbsolute())
-			//TODO consider returning decrypted path
-			return mUnderPath.toString();
-		else
-			return mUnderPath.toString();
+		try {
+			return mFs.decryptUnderPath(mUnderPath).toString();//just return decrypted path
+		} catch (GeneralSecurityException e) {
+			throw new RuntimeException("Unable to decode path " + mUnderPath, e);
+		}
+		
+//		if (this.isAbsolute())
+//			//DONE consider returning decrypted path. Returning decrypted path
+//			return mUnderPath.toString();
+//		else
+//			return mUnderPath.toString();
 	}
 	
 	@Override
@@ -150,38 +159,84 @@ public class PathEncrypted implements Path {
 	}
 
 	@Override
-	public Path getRoot() {
+	public PathEncrypted getRoot() {
+		if (this.isAbsolute())
+			return getFsRoot();
+		else
+			return null;
+	}
+
+	/**
+	 * @return - default root for current filesystem, i.e. PathEncrypted(D:\enc)
+	 * This path is always absolute
+	 */
+	public PathEncrypted getFsRoot() {
 		return mFs.toEncrypted(mFs.getRootDir());
 	}
 
 	@Override
-	public Path getFileName() {
+	public PathEncrypted getFileName() {
 		return mFs.toEncrypted(mUnderPath.getFileName());
 	}
 
 	@Override
-	public Path getParent() {
+	public PathEncrypted getParent() {
 		if (mUnderPath.getParent() == null)
 			return null;
 		return mFs.toEncrypted(mUnderPath.getParent());
 	}
 
+	/**
+	 * Path(xxx\dir).getNameCount() = 1<br>
+	 * Path(\dir).getNameCount() = 1<br>
+	 * @return
+	 */
+	//+ Done
 	@Override
 	public int getNameCount() {
-		//TOREVIEW
-		return mUnderPath.getNameCount();
+		//root should not be included by specification
+		//need count only relative paths - starting from the root
+		if (isAbsolute())
+			return getRelativePath().getNameCount();
+		else
+			return getUnderPath().getNameCount();
 	}
 
+	//+ Done
 	@Override
-	public Path getName(int index) {
-		//TOREVIEW
-		return mFs.toEncrypted(mUnderPath.getName(index));
+	public PathEncrypted getName(int index) {
+		//root should not be included by specification
+		//need count only relative paths - starting from the root
+		if (isAbsolute())
+			return getRelativePath().getName(index);
+		else
+			return mFs.toEncrypted(getUnderPath().getName(index));
 	}
 
+	/**
+	 * Return PathEncrypted that is relative to the root, i.e.<br>
+	 * Path(D:\enc1\dir).getRelativePath() = Path(\dir)
+	 * Path(\dir).getRelativePath() = Path(\dir)
+	 * @return
+	 */
+	protected PathEncrypted getRelativePath(){
+		if (this.isAbsolute())
+			return getFsRoot().relativize(this);
+		else
+			return this;
+	}
+	
+	//+ Done
 	@Override
-	public Path subpath(int beginIndex, int endIndex) {
-		//TOREVIEW
-		return mFs.toEncrypted(mUnderPath.subpath(beginIndex, endIndex));
+	public PathEncrypted subpath(int beginIndex, int endIndex) {
+		//TODO:
+		if (isAbsolute())
+			return getRelativePath().subpath(beginIndex, endIndex);
+		else
+			return mFs.toEncrypted(mUnderPath.subpath(beginIndex, endIndex));
+//		Path relative = getRelativePath();
+//		validatePath(other);
+//		return mFs.toEncrypted(mUnderPath.subpath(beginIndex, endIndex));
 	}
 
 	@Override
@@ -210,8 +265,17 @@ public class PathEncrypted implements Path {
 		return mUnderPath.endsWith(mFs.getPath(other));
 	}
 
+	/**
+	 * Path(.\dir).normalize() = Path(.\dir) 
+	 * Path(..\dir).normalize() = Path(..\dir) 
+	 * Path(D:\enc1\dir).normalize() = Path(D:\enc1\dir) 
+	 * Path(D:\enc1\dir\..\dir1).normalize() = Path(D:\enc1\dir1) 
+	 * Path(D:\enc1\dir\.\dir1).normalize() = Path(D:\enc1\dir\dir1) 
+	 * @return
+	 */
+	//+ Done
 	@Override
-	public Path normalize() {
+	public PathEncrypted normalize() {
 		return mFs.toEncrypted(mUnderPath.normalize());
 	}
 
@@ -224,10 +288,10 @@ public class PathEncrypted implements Path {
 	 * @return
 	 */
 	@Override
-	public Path resolve(Path other) {
+	public PathEncrypted resolve(Path other) {
 		validatePath(other);
 		if (other.isAbsolute())
-			return other;
+			return (PathEncrypted)other;
 		if (other.toString().length() == 0)
 			return this;
 		//resolve under path for both - then transform to encrypted
@@ -238,7 +302,7 @@ public class PathEncrypted implements Path {
 	}
 
 	@Override
-	public Path resolve(String other) {
+	public PathEncrypted resolve(String other) {
 		return resolve(mFs.getPath(other));
 	}
 
@@ -252,24 +316,24 @@ public class PathEncrypted implements Path {
 	 * @return
 	 */
 	@Override
-	public Path resolveSibling(Path other) {
+	public PathEncrypted resolveSibling(Path other) {
 		if (other.isAbsolute())
-			return other;
+			return (PathEncrypted)other;
 		if (other.toString().length() == 0)
 			return this.getParent();
 		if (this.getParent() == null)
-			return other;
+			return (PathEncrypted)other;
 		
 		return this.getParent().resolve(other);
 	}
 
 	@Override
-	public Path resolveSibling(String other) {
+	public PathEncrypted resolveSibling(String other) {
 		return resolveSibling(mFs.getPath(other));
 	}
 
 	@Override
-	public Path relativize(Path other) {
+	public PathEncrypted relativize(Path other) {
 		//TOREVIEW
 		validatePath(other);
 		Path pathThis = this.getDecryptedPath();
@@ -297,12 +361,22 @@ public class PathEncrypted implements Path {
 		return res;
 	}
 
+	/**
+	 * Method trivially adds root component if missing
+	 * xxx - filesystem root
+	 * Path(.\dir).toAbsolutePath() = Path(xxx\dir) 
+	 * Path(..\dir).toAbsolutePath() = exception 
+	 * Path(D:\enc1\dir).toAbsolutePath() = Path(D:\enc1\dir) 
+	 * Path(D:\enc1\dir\..\dir1).toAbsolutePath() = Path(D:\enc1\dir\..\dir1) 
+	 * @return
+	 */
+	//+ Done
 	@Override
-	public Path toAbsolutePath() {
+	public PathEncrypted toAbsolutePath() {
 		if (this.isAbsolute())
 			return this;
 		else
-			return resolve(this);
+			return getFsRoot().resolve(this);
 	}
 
 	@Override
@@ -332,10 +406,31 @@ public class PathEncrypted implements Path {
 		return null;
 	}
 
+	//+ Done
 	@Override
 	public Iterator<Path> iterator() {
-		// TODO Auto-generated method stub
-		return null;
+		final PathEncrypted relative = getRelativePath();
+        return new Iterator<Path>() {
+            private int i = 0;
+
+            @Override
+            public boolean hasNext() {
+                return i < relative.getNameCount();
+            }
+
+            @Override
+            public Path next() {
+                if (i < relative.getNameCount())
+                    return relative.getName(i++);
+                else
+                    throw new NoSuchElementException();
+            }
+
+            @Override
+            public void remove() {
+    			throw new UnsupportedOperationException();
+            }
+        };
 	}
 
 }

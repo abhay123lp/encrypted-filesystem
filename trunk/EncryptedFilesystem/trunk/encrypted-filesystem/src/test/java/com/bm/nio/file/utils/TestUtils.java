@@ -18,6 +18,9 @@ import com.bm.nio.file.FileSystemEncrypted;
 import com.bm.nio.file.FileSystemProviderEncrypted;
 
 public class TestUtils {
+	
+	public static final String SANDBOX_PATH = "./src/test/sandbox/";
+	
 	public static void deleteFilesystems(FileSystemProviderEncrypted provider) throws IOException {
 		for (FileSystemEncrypted fe : provider.getFileSystems()){
 			for (Path p : fe.getRootDirectories())
@@ -26,7 +29,7 @@ public class TestUtils {
 					@Override
 					public FileVisitResult preVisitDirectory(Path dir,
 							BasicFileAttributes attrs) throws IOException {
-						System.out.println(dir);
+						//System.out.println(dir);
 						return FileVisitResult.CONTINUE;
 					}
 

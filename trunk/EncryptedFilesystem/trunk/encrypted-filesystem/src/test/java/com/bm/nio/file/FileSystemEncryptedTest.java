@@ -75,7 +75,6 @@ public class FileSystemEncryptedTest {
 	}
 	
 	
-	String sandboxPath = "./src/test/sandbox/";
 	
 //	private void delete(File file){
 //		if (file.isFile())
@@ -156,17 +155,17 @@ public class FileSystemEncryptedTest {
 //		}
 		
 		try {
-//			File sandbox = new File(sandboxPath);
+//			File sandbox = new File(TestUtils.SANDBOX_PATH);
 //			String currDir = sandbox.getCanonicalPath();
 //			Path p = Paths.get(currDir);
 //			URI uriFile = p.toUri();
 //			URI uriEncrypted = new URI("encrypted:" + uriFile);
 			for (int i = 0; i < 100; i ++)
-				TestUtils.newTempFieSystem(fpe, sandboxPath + "/enc" + i);
+				TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/enc" + i);
 			// === duplication ===
 			boolean duplicateError = false;
 			try {
-				TestUtils.newTempFieSystem(fpe, sandboxPath + "/enc3");
+				TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/enc3");
 			} catch (FileSystemAlreadyExistsException e) {
 				duplicateError = true;
 			}
@@ -176,7 +175,7 @@ public class FileSystemEncryptedTest {
 			// === nested encrypted filesystem not allowed ===
 			boolean nestedException = false;
 			try {
-				TestUtils.newTempFieSystem(fpe, sandboxPath + "/enc3/dir");
+				TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/enc3/dir");
 			} catch (FileSystemAlreadyExistsException e) {
 				nestedException = true;
 			}
@@ -184,16 +183,16 @@ public class FileSystemEncryptedTest {
 			// === nested - high level filesystem not allowed ===
 			nestedException = false;
 			try {
-				TestUtils.newTempFieSystem(fpe, sandboxPath + "/enc300/dir");
+				TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/enc300/dir");
 				//TOD1O: implement this check in filesystemprovider!
-				TestUtils.newTempFieSystem(fpe, sandboxPath + "/enc300");
+				TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/enc300");
 			} catch (FileSystemAlreadyExistsException e) {
 				nestedException = true;
 			}
 			Assert.assertTrue(nestedException);//check error in case of duplication
 			// === === ===
 			
-			String encSubPath = sandboxPath + "/enc23/dir";
+			String encSubPath = TestUtils.SANDBOX_PATH + "/enc23/dir";
 			TestUtils.newTempDir(encSubPath);
 			FileSystem fs = fpe.getFileSystem(TestUtils.uriEncrypted(TestUtils.pathToURI(encSubPath)));
 			for (Path p : fs.getRootDirectories()){
@@ -205,9 +204,9 @@ public class FileSystemEncryptedTest {
 			// === closing - should not be exception ===
 			boolean exception = false;
 			try {
-				FileSystem fsClose = TestUtils.newTempFieSystem(fpe, sandboxPath + "/encClose/dir");
+				FileSystem fsClose = TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/encClose/dir");
 				fsClose.close();
-				TestUtils.newTempFieSystem(fpe, sandboxPath + "/encClose/dir");
+				TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/encClose/dir");
 			} catch (Exception e) {
 				exception = true;
 			}
@@ -259,7 +258,7 @@ public class FileSystemEncryptedTest {
 			
 			// === deleting should not be exception ===
 			for (int i = 0; i < 10; i ++){
-				String basePath = sandboxPath + "/enc" + i;
+				String basePath = TestUtils.SANDBOX_PATH + "/enc" + i;
 				TestUtils.newTempFieSystem(fpe, basePath);
 			}
 			
@@ -275,11 +274,11 @@ public class FileSystemEncryptedTest {
 			
 			// === deleting with not encrypted folder inside - should be exception (not encrypted won't be deleted) ===
 			for (int i = 0; i < 10; i ++){
-				String basePath = sandboxPath + "/enc" + i;
+				String basePath = TestUtils.SANDBOX_PATH + "/enc" + i;
 				TestUtils.newTempFieSystem(fpe, basePath);
 			}
 			
-			File plain = TestUtils.newTempDir(sandboxPath + "/enc0/enc01");
+			File plain = TestUtils.newTempDir(TestUtils.SANDBOX_PATH + "/enc0/enc01");
 			
 			//TODO: should work correctly 
 			//when implemented encrypted name check (in DirectoryIteratorEncrypted.hasNext(), new PathEncrypted())
@@ -336,7 +335,7 @@ public class FileSystemEncryptedTest {
 		//TODO: implement directory walker deletion (can take from delete() test)
 		//
 //		TestUtils.deleteFilesystems(mFspe);
-		File f = new File(sandboxPath);
+		File f = new File(TestUtils.SANDBOX_PATH);
 		if (f.isDirectory())
 			deleteFolderContents(f);
 		

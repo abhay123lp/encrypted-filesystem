@@ -102,10 +102,15 @@ public class FileSystemEncrypted extends FileSystem {
 			throw new IllegalArgumentException("path " + plainUnderPath + " does not belong filesystem path " + mRoot);
 		Path res = mRoot;
 		Path remainderPath;
-		if (plainUnderPath.isAbsolute())//Path(file:///D:/enc1/dir)
+		if (plainUnderPath.isAbsolute()){//Path(file:///D:/enc1/dir)
 			remainderPath = mRoot.relativize(plainUnderPath);//Path(file:///dir)
-		else//Path(file:///dir)
+			res = mRoot;
+		}
+		else{//Path(file:///dir)
 			remainderPath = plainUnderPath;
+			res = mRoot.getFileSystem().getPath("");//empty path if plainUnderPath is relative (not absolute)
+		}
+		// === encrypt ===
 		for (int i = 0; i < remainderPath.getNameCount(); i ++){
 			String currName = remainderPath.getName(i).toString();
 			res = res.resolve(encryptName(currName));
@@ -122,12 +127,17 @@ public class FileSystemEncrypted extends FileSystem {
 	protected Path decryptUnderPath(Path encUnderPath) throws GeneralSecurityException{
 		if (!isSubPath(encUnderPath))
 			throw new IllegalArgumentException("path " + encUnderPath + " does not belong filesystem path " + mRoot);
-		Path res = mRoot;
+		Path res;
 		Path remainderPath;
-		if (encUnderPath.isAbsolute())//Path(file:///D:/enc1/F11A)
+		if (encUnderPath.isAbsolute()){//Path(file:///D:/enc1/F11A)
 			remainderPath = mRoot.relativize(encUnderPath);//Path(file:///F11A)
-		else//Path(file:///F11A)
+			res = mRoot;
+		}
+		else{//Path(file:///F11A)
 			remainderPath = encUnderPath;
+			res = mRoot.getFileSystem().getPath("");//empty path if encUnderPath is relative (not absolute)
+		}
+		// === decrypt ===
 		for (int i = 0; i < remainderPath.getNameCount(); i ++){
 			String currName = remainderPath.getName(i).toString();
 			res = res.resolve(decryptName(currName));
@@ -170,13 +180,15 @@ public class FileSystemEncrypted extends FileSystem {
 	 * Parameters should be in plain decrypted string, i.e. D:/enc1/dir, not D:/enc1/F11A
 	 * @param first - first path of path. i.e. D:/enc1/dir
 	 * @param more - additional path part, i.e. dir1
-	 * @return Encrypted path, i.e. Path(encrypted:file:///D:/enc1/dir/dir1)
+	 * @return Encrypted path, i.e. Path(encrypted:file:///D:/enc1/dir/dir1) or Path(encrypted:file:///dir/dir1)
 	 */
 	@Override
 	public Path getPath(String first, String... more) {
 		// DONE: make to work properly
 		//let underlying fs do all stick work. Create absolute path to not deal with .., ./ etc
-		Path lPath = mRoot.resolve(mRoot.getFileSystem().getPath(first, more));//.toAbsolutePath()?
+		//TOREVIEW: use either of below
+		//Path lPath = mRoot.resolve(mRoot.getFileSystem().getPath(first, more));//.toAbsolutePath()?
+		Path lPath = mRoot.getFileSystem().getPath(first, more);
 		try {
 			lPath = encryptUnderPath(lPath);//Path(file:///D:/enc1/F11A)
 		} catch (GeneralSecurityException e) {

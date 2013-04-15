@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -47,7 +48,8 @@ public class Test {
 		//new Test().testStartsForZip();
 		//new Test().testRelativeResolve();
 		//new Test().testFileName();
-		new Test().testIsAbsoluteResolve();
+		//new Test().testIsAbsoluteResolve();
+		new Test().testIterator();
 	}
 	
 	public void testStartsForZip() throws Exception{
@@ -195,6 +197,23 @@ public class Test {
 		System.out.println(b.resolve(part));
 		System.out.println(part.resolve(part));
 		System.out.println(part.resolve(b));
+	}
+
+	public void testIterator(){
+		String sa = "file:///D:/a/a";
+		String sb = "file:///D:/a/a/b/c";
+		URI ua = URI.create(sa);
+		URI ub = URI.create(sb);
+		Path a = Paths.get(ua);
+		Path b = Paths.get(ub);
+		Path part = a.relativize(b);
+		Iterator<Path> iterator = b.iterator();
+		while(iterator.hasNext()){
+			System.out.println(iterator.next());
+		}
+		for (int i = 0; i < b.getNameCount(); i ++){
+			System.out.println(b.getName(i));
+		}
 	}
 
 }
