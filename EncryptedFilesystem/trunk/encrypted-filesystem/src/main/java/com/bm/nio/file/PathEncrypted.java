@@ -153,6 +153,7 @@ public class PathEncrypted implements Path {
     		return new DirectoryStreamEncrypted(this, filter);
         }
 	
+	//+ Done
 	@Override
 	public boolean isAbsolute() {
 		return mUnderPath.isAbsolute();
@@ -174,16 +175,21 @@ public class PathEncrypted implements Path {
 		return mFs.toEncrypted(mFs.getRootDir());
 	}
 
+	//+ Done
 	@Override
 	public PathEncrypted getFileName() {
 		return mFs.toEncrypted(mUnderPath.getFileName());
 	}
 
+	//+ Done
 	@Override
 	public PathEncrypted getParent() {
 		if (mUnderPath.getParent() == null)
 			return null;
-		return mFs.toEncrypted(mUnderPath.getParent());
+		if (mUnderPath.equals(mFs.getRootDir()))//check if path is root the don't have parent.
+			return null;
+		final PathEncrypted parent = mFs.toEncrypted(mUnderPath.getParent());
+		return parent;
 	}
 
 	/**
