@@ -20,6 +20,9 @@ import java.nio.file.spi.FileSystemProvider;
 import java.security.GeneralSecurityException;
 import java.security.InvalidAlgorithmParameterException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -37,30 +40,52 @@ public class FileSystemEncrypted extends FileSystem {
 
 	
 	private Path mRoot;
-	private FileSystemProviderEncrypted mProvider; 
+	private FileSystemProviderEncrypted mProvider;
+	//file names that should not be encrypted, i.e. ".." or "."
+	private Set<String> plainNames = new HashSet<String>(Arrays.asList(new String[] {"..", ".", "~"}));//Collections.emptySet();
 	
 	public static final class FileSystemEncryptedEnvParams{
+		//name of configuration file for the filesystem
 		public static final String ENV_CONFIG_FILE = "env.config.file";
+		//Set of names that should not be encoded
+		public static final String ENV_PLAIN_NAMES = "env.plain.names";
+		//used by Provider, instructs to create under filesystem if missing
+		public static final String ENV_CREATE_UNDERLYING_FILE_SYSTEM = "createUnderFileSystem";
 	}
 	
 	private String configFile = "config.properties";
+	private Path config;
 	/**
 	 * @param provider
 	 * @param path - path of underlying filesystem, i.e. D:/enc1
 	 * @param env
 	 */
+	@SuppressWarnings("unchecked")
 	FileSystemEncrypted(FileSystemProviderEncrypted provider,
             Path path,
             Map<String, ?> env) throws IOException{
 		if (!Files.isDirectory(path))//TODO: test with ZipFileSystem - is it's root defined as file or folder?
 			throw new InvalidPathException(path.toString(), path + " can not be used as encrypted storage - not a directory");
 		
+
+		// parse env
+		Object o;
+		//
+		o = env.get(FileSystemEncryptedEnvParams.ENV_PLAIN_NAMES);
+		if (o != null){
+			if (!(o instanceof Set)){
+				throw new IllegalArgumentException("Parameter " + FileSystemEncryptedEnvParams.ENV_PLAIN_NAMES + " must be type of " + Set.class);
+			} else{
+				plainNames = (Set<String>)o;
+			}
+		}
+		
 		//TODO: create common functions to encryps/decrypt file by password (store cipher in FileSystemEncrypted)
 		//read encrypted properties from file
-		Object o = env.get(FileSystemEncryptedEnvParams.ENV_CONFIG_FILE);
+		o = env.get(FileSystemEncryptedEnvParams.ENV_CONFIG_FILE);
 		if (o != null)
 			configFile = o.toString();
-		Path config = path.resolve(configFile);
+		config = path.resolve(configFile);
 		if (!Files.exists(config))
 			Files.createFile(config);
     	mRoot = path.toAbsolutePath();
@@ -113,7 +138,11 @@ public class FileSystemEncrypted extends FileSystem {
 		// === encrypt ===
 		for (int i = 0; i < remainderPath.getNameCount(); i ++){
 			String currName = remainderPath.getName(i).toString();
-			res = res.resolve(encryptName(currName));
+			//should not encrypt ".." or "."
+			if (plainNames.contains(currName))
+				res = res.resolve(currName);
+			else
+				res = res.resolve(encryptName(currName));
 		}
 		return res;
 	}
@@ -140,7 +169,11 @@ public class FileSystemEncrypted extends FileSystem {
 		// === decrypt ===
 		for (int i = 0; i < remainderPath.getNameCount(); i ++){
 			String currName = remainderPath.getName(i).toString();
-			res = res.resolve(decryptName(currName));
+			//should not decrypt ".." or "."
+			if (plainNames.contains(currName))
+				res = res.resolve(currName);
+			else
+				res = res.resolve(decryptName(currName));
 		}
 		return res;
 	}
@@ -201,12 +234,14 @@ public class FileSystemEncrypted extends FileSystem {
 	
 	protected String encryptName(String plainName) throws GeneralSecurityException {
 		//TODO:
+		// consider using MAC
 		//throw new IllegalArgumentException();
 		return plainName;
 	}
 	
 	protected String decryptName(String encName) throws GeneralSecurityException {
 		//TODO:
+		// consider using MAC
 		return encName;
 	}
 	
@@ -245,10 +280,13 @@ public class FileSystemEncrypted extends FileSystem {
 	protected void delete(PathEncrypted path) throws IOException {
 		//DONE: test that deletes correctly
 		synchronized (this) {
-			Files.delete(path.getUnderPath());
-			if (path.getUnderPath().equals(mRoot)) {//root was deleted - close
+			if (path.getUnderPath().equals(mRoot)) {
+				//root was deleted - close
+				Files.deleteIfExists(config);
+				Files.delete(path.getUnderPath());
 				close();
-			}
+			} else
+				Files.delete(path.getUnderPath());
 		}
 		//delete some file within filesystem
 	}
