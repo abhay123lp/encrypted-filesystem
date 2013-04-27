@@ -49,7 +49,7 @@ public class Test {
 		//new Test().testRelativeResolve();
 		//new Test().testFileName();
 		//new Test().testIsAbsoluteResolve();
-		new Test().testIterator();
+		//new Test().testIterator();
 	}
 	
 	public void testStartsForZip() throws Exception{

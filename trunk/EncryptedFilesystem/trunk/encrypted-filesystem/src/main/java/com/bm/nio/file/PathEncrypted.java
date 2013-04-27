@@ -235,7 +235,6 @@ public class PathEncrypted implements Path {
 	//+ Done
 	@Override
 	public PathEncrypted subpath(int beginIndex, int endIndex) {
-		//TODO:
 		if (isAbsolute())
 			return getRelativePath().subpath(beginIndex, endIndex);
 		else
@@ -245,30 +244,30 @@ public class PathEncrypted implements Path {
 //		return mFs.toEncrypted(mUnderPath.subpath(beginIndex, endIndex));
 	}
 
+	//+ Done
 	@Override
 	public boolean startsWith(Path other) {
-		//TOREVIEW
 		validatePath(other);
 		return mUnderPath.startsWith(((PathEncrypted)other).getUnderPath());
 	}
 
+	//+ Done
 	@Override
 	public boolean startsWith(String other) {
-		//TOREVIEW
-		return mUnderPath.startsWith(mFs.getPath(other));
+		return startsWith(mFs.getPath(other));
 	}
 
+	//+ Done
 	@Override
 	public boolean endsWith(Path other) {
-		//TOREVIEW
 		validatePath(other);
 		return mUnderPath.endsWith(((PathEncrypted)other).getUnderPath());
 	}
 
+	//+ Done
 	@Override
 	public boolean endsWith(String other) {
-		//TOREVIEW
-		return mUnderPath.endsWith(mFs.getPath(other));
+		return endsWith(mFs.getPath(other));
 	}
 
 	/**
@@ -286,13 +285,14 @@ public class PathEncrypted implements Path {
 	}
 
 	/**
-	 * Adds other path to this path by below rules:<br>
+	 * Adds other path to this (this + other) path by below rules:<br>
 	 * Path(xxx).resolve(Path(D:/enc1/dir)) = Path(D:/enc1/dir)<br>
 	 * Path(xxx).resolve(Path()) = Path(xxx)<br>
 	 * Path(xxx).resolve(Path(/dir2)) = Path(xxx/dir2)<br>
 	 * @param other
 	 * @return
 	 */
+	//+ Done
 	@Override
 	public PathEncrypted resolve(Path other) {
 		validatePath(other);
@@ -307,6 +307,7 @@ public class PathEncrypted implements Path {
 		return mFs.toEncrypted(resolved);
 	}
 
+	//+ Done
 	@Override
 	public PathEncrypted resolve(String other) {
 		return resolve(mFs.getPath(other));
@@ -314,13 +315,14 @@ public class PathEncrypted implements Path {
 
 	/**
 	 * Adds other path to this path's parent by below rules (xxx is a parent path):<br>
-	 * Path(xxx/enc1).resolve(Path(D:/enc1/dir)) = Path(D:/enc1/dir)<br>
-	 * Path(xxx/enc1).resolve(Path()) = Path(xxx)<br>
-	 * Path(xxx/enc1).resolve(Path(/dir2)) = Path(xxx/dir2)<br>
-	 * Path(xxx/enc1).resolve(Path(YYY)) = Path(YYY) if xxx == null<br>
+	 * Path(xxx/enc1).resolveSibling(Path(D:/enc1/dir)) = Path(D:/enc1/dir)<br>
+	 * Path(xxx/enc1).resolveSibling(Path()) = Path(xxx)<br>
+	 * Path(xxx/enc1).resolveSibling(Path(/dir2)) = Path(xxx/dir2)<br>
+	 * Path(xxx/enc1).resolveSibling(Path(YYY)) = Path(YYY) if xxx == null<br>
 	 * @param other
 	 * @return
 	 */
+	//+ Done
 	@Override
 	public PathEncrypted resolveSibling(Path other) {
 		if (other.isAbsolute())
@@ -333,14 +335,20 @@ public class PathEncrypted implements Path {
 		return this.getParent().resolve(other);
 	}
 
+	//+ Done
 	@Override
 	public PathEncrypted resolveSibling(String other) {
 		return resolveSibling(mFs.getPath(other));
 	}
 
+	/**
+	 * other - this
+	 * @param other
+	 * @return
+	 */
+	//+ Done
 	@Override
 	public PathEncrypted relativize(Path other) {
-		//TOREVIEW
 		validatePath(other);
 		Path pathThis = this.getDecryptedPath();
 		Path pathOther = ((PathEncrypted)other).getDecryptedPath();
@@ -348,18 +356,21 @@ public class PathEncrypted implements Path {
 		return mFs.toEncrypted(relative);
 	}
 
+	//Covered +
 	@Override
 	public URI toUri() {
 		URI res;
 		try {
 			//file:///D:/enc1/F11A --> file:///D:/enc1/dir
-			res = mFs.decryptUnderPath(mUnderPath).toUri();
+			//file:///./F11A --> file:///D:/enc1/./dir
+			res = mFs.getRootDir().resolve(mFs.decryptUnderPath(mUnderPath)).toUri();
 		} catch (GeneralSecurityException e) {
 			throw new RuntimeException("Unable to decode path " + mUnderPath, e);
 		}
 		
 		try {
 			//file:///D:/enc1/dir --> encrypted:file:///D:/enc1/dir
+			//file:///D:/enc1/./dir --> encrypted:file:///D:/enc1/./dir
 			res = new URI(mFs.provider().getScheme(), res.toString(), null);
 		} catch (URISyntaxException e) {
 			throw new RuntimeException("Unable to derive from URI: " + res + " for path: " + mUnderPath, e);
@@ -385,17 +396,23 @@ public class PathEncrypted implements Path {
 			return getFsRoot().resolve(this);
 	}
 
+	//+ Done
 	@Override
 	public Path toRealPath(LinkOption... options) throws IOException {
-		// TODO Auto-generated method stub
-		// TODO Consider returning decrypted path 
-		return null;
+		// DONE Consider returning decrypted path
+		Path realUnderPath = mFs.getRootDir().resolve(mUnderPath).toRealPath(options);
+		//note: in case of links Path D:/enc2/dir can belong to filesystem D:/enc1/ !
+		return mFs.toEncrypted(realUnderPath);
 	}
 
+	/**
+	 * Returns physical file associated with this path. Name and contents are encrypted.
+	 * @return
+	 */
+	//+ Done
 	@Override
 	public File toFile() {
-		// TOREVIEW
-		return mUnderPath.toFile();
+		return  mFs.getRootDir().resolve(mUnderPath).toFile();
 	}
 
 	@Override

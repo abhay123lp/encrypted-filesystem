@@ -888,18 +888,21 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 
 	@Override
 	protected void implCloseChannel() throws IOException {
-		//TODO: flush from the buffer, 
-		//... or alternatively flush it after each write operation
-		try {
-			//saveBlock(mDecPos, true, false);
-			saveBlock(mDecPos, BlockOperationOptions.NONINTERRUPTIBLE);
-		} catch (GeneralSecurityException e) {
-			IOException ie = new IOException("Unable to close: cannot flush the buffer");
-			ie.initCause(e);
-			throw ie;
+		synchronized (this) {
+			//TODO: flush from the buffer, 
+			//... or alternatively flush it after each write operation
+			try {
+				//saveBlock(mDecPos, true, false);
+				saveBlock(mDecPos, BlockOperationOptions.NONINTERRUPTIBLE);
+			} catch (GeneralSecurityException e) {
+				IOException ie = new IOException("Unable to close: cannot flush the buffer");
+				ie.initCause(e);
+				throw ie;
+			}
+			mChannel.close();
+			remove(mChannel);
+			mIsOpen = false;
 		}
-		remove(mChannel);
-		mIsOpen = false;
 	}
 
 	/**
