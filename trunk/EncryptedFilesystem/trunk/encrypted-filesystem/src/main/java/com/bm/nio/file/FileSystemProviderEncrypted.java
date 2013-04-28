@@ -452,7 +452,7 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 		if (!(path instanceof PathEncrypted))
 			throw new ProviderMismatchException();
 		final PathEncrypted p = (PathEncrypted)path;
-		FileSystemEncrypted fs = getFileSystemInternal(p);
+		FileSystemEncrypted fs = p.getFileSystem();//getFileSystemInternal(p);
 		if (fs == null)
 			throw new FileSystemNotFoundException();
 		fs.delete(p);

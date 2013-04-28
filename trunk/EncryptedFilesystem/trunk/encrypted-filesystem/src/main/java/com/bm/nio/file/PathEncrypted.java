@@ -71,6 +71,16 @@ public class PathEncrypted implements Path {
 	}
 	
 	/**
+	 * @return - full underlying path for this PathEncrypted instance.<p>
+	 * This is required for some operations (toFile, toRealPath, register, delete)
+	 * with real physical underlying paths, not relative
+	 * Should be equal to toAbsolute().getUnderPath()
+	 */
+	protected Path getFullUnderPath(){
+		return mFs.getRootDir().resolve(mUnderPath);
+	}
+	
+	/**
 	 * @return path with decrypted names, equals to underlying path, i.e. D:\enc1\F11A or \F11A (relative path)
 	 */
 	public Path getDecryptedPath(){
@@ -382,7 +392,7 @@ public class PathEncrypted implements Path {
 	@Override
 	public Path toRealPath(LinkOption... options) throws IOException {
 		// DONE Consider returning decrypted path
-		Path realUnderPath = mFs.getRootDir().resolve(mUnderPath).toRealPath(options);
+		Path realUnderPath = getFullUnderPath().toRealPath(options);
 		//note: in case of links Path D:/enc2/dir can belong to filesystem D:/enc1/ !
 		return mFs.toEncrypted(realUnderPath);
 	}
@@ -394,7 +404,7 @@ public class PathEncrypted implements Path {
 	//+ Done
 	@Override
 	public File toFile() {
-		return  mFs.getRootDir().resolve(mUnderPath).toFile();
+		return  getFullUnderPath().toFile();
 	}
 
 	//+ Done
@@ -403,9 +413,9 @@ public class PathEncrypted implements Path {
 			Modifier... modifiers) throws IOException {
 		if (!(watcher instanceof WatchServiceEncrypted))
 			throw new ProviderMismatchException("Incompatible watch service to register");
-		final Path wholeUnderPath = mFs.getRootDir().resolve(mUnderPath);
+		final Path fullUnderPath = getFullUnderPath(); //mFs.getRootDir().resolve(mUnderPath);
 		final WatchServiceEncrypted wse = (WatchServiceEncrypted) watcher;
-		final WatchKey underKey = wholeUnderPath.register(wse.getUnderWatcher(), events, modifiers);
+		final WatchKey underKey = fullUnderPath.register(wse.getUnderWatcher(), events, modifiers);
 		//DONE: here if someone will call watcher.poll in another tread - watcher can't find key because it
 		// still don't have it
 		// Resolution: as soon as we use new WatchKeyEncrypted every time - watcher.poll will 

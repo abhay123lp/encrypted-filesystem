@@ -346,9 +346,11 @@ public class FileSystemEncryptedTest {
 		//DONE: implement directory walker deletion (can take from delete() test)
 		//
 		TestUtils.deleteFilesystems(mFspe);
-//		File f = new File(TestUtils.SANDBOX_PATH);
-//		if (f.isDirectory())
-//			deleteFolderContents(f);
+		//clean is required for some nested filesystems, 
+		// i.e. EncryptedFilesystem with enc300/dir root, will leave enc300 after deletion 
+		File f = new File(TestUtils.SANDBOX_PATH);
+		if (f.isDirectory())
+			deleteFolderContents(f);
 //		
 //		//close filesystems
 //		FileSystemProviderEncrypted fpe = mFspe;

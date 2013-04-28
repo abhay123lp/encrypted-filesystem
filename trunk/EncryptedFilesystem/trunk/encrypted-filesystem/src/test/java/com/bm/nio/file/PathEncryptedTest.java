@@ -12,6 +12,7 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
+import java.nio.file.ClosedWatchServiceException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -23,6 +24,7 @@ import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
+import java.nio.file.Watchable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,6 +33,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.zip.ZipFile;
 
@@ -433,6 +436,60 @@ public class PathEncryptedTest {
 			Assert.assertEquals(a1.relativize(a2), b2);
 		}
 		key.reset();
+	}
+	
+	@Test
+	public void testWatchService() throws Exception {
+		//testing some methods of watch service
+		final Path a1 = fs.getPath(".", "dir2");
+		final Path a2 = fs.getPath(".", "dir2", "dir3");
+		Files.createDirectories(a1);
+		WatchService ws = fs.newWatchService();
+		WatchKey keyReg = a1.register(ws, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
+		Files.createDirectories(a2);
+		// === test (poll) ===
+		WatchKey key = ws.take();
+		key.reset();
+		key = ws.take();
+		Assert.assertTrue(key.isValid());
+		key.cancel();
+		Assert.assertFalse(key.isValid());
+		Files.delete(a2);
+		key = ws.poll();
+		Assert.assertEquals(null, key);//returns nothing as soon as cancelled
+		
+		// === test 2 (poll, poll(time), close) ===
+		WatchKey keyReg2 = a1.register(ws, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);//create another key
+		Assert.assertFalse(keyReg.equals(keyReg2));//can't be the same as soon as old was cancelled
+		Files.createDirectories(a2);
+		Files.delete(a2);
+		key = ws.poll(100, TimeUnit.MILLISECONDS);
+		key.reset();
+		key = ws.poll();
+		List<WatchEvent<?>> events = key.pollEvents();
+		Assert.assertEquals(events.size(), 2);
+		Assert.assertEquals(events.get(0).kind(), ENTRY_CREATE);
+		Assert.assertEquals(events.get(1).kind(), ENTRY_DELETE);
+		// ===
+		ws.close();
+		Assert.assertFalse(key.isValid());
+		ws.close();
+		boolean exception;
+		exception = false;
+		try {
+			ws.take();
+		} catch (ClosedWatchServiceException e) {
+			try {
+				ws.poll();
+			} catch (ClosedWatchServiceException e1) {
+				try {
+					ws.poll(100, TimeUnit.MILLISECONDS);
+				} catch (ClosedWatchServiceException e2) {
+					exception = true;
+				}
+			}
+		}
+		Assert.assertTrue(exception);
 	}
 	
 	@After
