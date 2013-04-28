@@ -317,6 +317,7 @@ public class PathEncrypted implements Path {
 	//+ Done
 	@Override
 	public PathEncrypted resolveSibling(Path other) {
+		validatePath(other);
 		if (other.isAbsolute())
 			return (PathEncrypted)other;
 		if (other.toString().length() == 0)

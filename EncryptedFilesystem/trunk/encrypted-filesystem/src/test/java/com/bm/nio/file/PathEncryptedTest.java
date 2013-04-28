@@ -500,6 +500,7 @@ public class PathEncryptedTest {
 	
 	@Test
 	public void testZip() throws Exception {
+		//test basic toString function
 		URI u = URI.create("encrypted:jar:file:/1.zip!/");
 		Map<String, Object> env = new HashMap<String, Object>();
 		env.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CREATE_UNDERLYING_FILE_SYSTEM, true);
@@ -508,7 +509,9 @@ public class PathEncryptedTest {
 		Path dirs = fsEnc.getPath(".", "dir2", "dir3");
 		Path d1 = Files.createDirectories(dirs);
 		Assert.assertEquals(d1.toString(), "/./dir2/dir3");
-		
+		//
+		Path p1 = fs.getPath(".", "dir2", "dir3");
+		Assert.assertFalse(d1.equals(p1));
 //		FileSystems.newFileSystem(URI.create("jar:file:/1.zip!/"), Collections.EMPTY_MAP);
 //		Path p = Paths.get(URI.create("jar:file:/1.zip!/1"));
 //		Files.createFile(p);
@@ -530,23 +533,36 @@ public class PathEncryptedTest {
 
 	@Test
 	public void testTwoFs() throws Exception {
-		//TODO: add this to all applicable tests or do all tests in this method
-		FileSystem fs1 = null;
+		//testing only functions applicable for 2 filesystems
+		FileSystem fs1 = TestUtils.newTempFieSystem(mFspe, TestUtils.SANDBOX_PATH + "/enc2");
+		Path p1 = fs1.getPath("dir1");
+		Path p2 = fs.getPath("dir1");
+		boolean exception;
+		exception = false;
 		try {
-			fs1 = TestUtils.newTempFieSystem(mFspe, TestUtils.SANDBOX_PATH + "/enc2");
-			Path p1 = fs1.getPath("dir1");
-			Path p2 = fs.getPath("dir2");
-			boolean exception;
-			exception = false;
+			p1.endsWith(p2);
+		} catch (IllegalArgumentException e) {
 			try {
-				p1.endsWith(p2);
-			} catch (IllegalArgumentException e) {
-				exception = true;
+				p1.startsWith(p2);
+			} catch (IllegalArgumentException e1) {
+				try {
+					p1.relativize(p2);
+				} catch (IllegalArgumentException e2) {
+					try {
+						p1.resolve(p2);
+					} catch (IllegalArgumentException e3) {
+						try {
+							p1.resolveSibling(p2);
+						} catch (IllegalArgumentException e4) {
+							exception = true;
+						}
+					}
+				}
 			}
-			Assert.assertTrue(exception);
-			//TODO:
-		} finally {
 		}
+		Assert.assertTrue(exception);
+		//
+		Assert.assertFalse(p1.equals(p2));
 	}
 
 //	public void testStaff() throws Exception {
