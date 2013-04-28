@@ -18,6 +18,7 @@ import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.WatchService;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.Collections;
@@ -305,6 +306,16 @@ public class FileSystemEncryptedTest {
 		}
 	}	
 	
+	@Test
+	public void testNewWatchService() throws Exception {
+		FileSystem fs = TestUtils.newTempFieSystem(mFspe, TestUtils.SANDBOX_PATH + "/enc1");
+		WatchService wsEq = FileSystems.getDefault().newWatchService();
+		WatchService ws1 = new WatchServiceEncrypted(wsEq, (FileSystemEncrypted)fs);
+		WatchService ws2 = new WatchServiceEncrypted(wsEq, (FileSystemEncrypted)fs);
+		Assert.assertEquals(ws1, ws2);
+		Assert.assertEquals(ws1.hashCode(), ws2.hashCode());
+	}
+	
 	//@Test
 //	public void crypterTest() throws Exception{
 ////        Crypter decrypter = new Crypter("t5fbrxrb");
@@ -332,27 +343,19 @@ public class FileSystemEncryptedTest {
 	
 	@After
 	public void clean() throws IOException {
-		//TODO: implement directory walker deletion (can take from delete() test)
+		//DONE: implement directory walker deletion (can take from delete() test)
 		//
-//		TestUtils.deleteFilesystems(mFspe);
-		File f = new File(TestUtils.SANDBOX_PATH);
-		if (f.isDirectory())
-			deleteFolderContents(f);
-		
-		//close filesystems
-		FileSystemProviderEncrypted fpe = mFspe;
-		for (FileSystemEncrypted fe : fpe.getFileSystems()){
-			fe.close();
-		}
-
-		//doesn't delete recursively :(
+		TestUtils.deleteFilesystems(mFspe);
+//		File f = new File(TestUtils.SANDBOX_PATH);
+//		if (f.isDirectory())
+//			deleteFolderContents(f);
+//		
+//		//close filesystems
 //		FileSystemProviderEncrypted fpe = mFspe;
 //		for (FileSystemEncrypted fe : fpe.getFileSystems()){
-//			fe.delete();
+//			fe.close();
 //		}
-		
-		//TOD1O: remove from filesystem, not directory directly!
-		//Correcting: remove should be done not from filesystem but using FileVisitor
+
 	}
 	
 	public static void deleteFolderContents(File folder) {

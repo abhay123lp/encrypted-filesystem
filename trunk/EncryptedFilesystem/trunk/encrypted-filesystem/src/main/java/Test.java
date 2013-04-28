@@ -17,14 +17,20 @@ import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
 import java.nio.file.spi.FileSystemProvider;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -33,6 +39,7 @@ import javax.xml.bind.DatatypeConverter;
 import sun.nio.fs.WindowsFileSystemProvider;
 
 import com.bm.nio.file.FileAttributesEncrypted;
+import com.bm.nio.file.PathEncrypted;
 import com.sun.nio.zipfs.ZipFileSystem;
 import com.sun.nio.zipfs.ZipFileSystemProvider;
 import com.sun.nio.zipfs.ZipPath;
@@ -50,6 +57,13 @@ public class Test {
 		//new Test().testFileName();
 		//new Test().testIsAbsoluteResolve();
 		//new Test().testIterator();
+		Path p = Paths.get("/books");
+		WatchService w = FileSystems.getDefault().newWatchService();
+		p.register(w, StandardWatchEventKinds.ENTRY_MODIFY, StandardWatchEventKinds.ENTRY_DELETE, StandardWatchEventKinds.ENTRY_CREATE);
+		WatchKey wk = w.take();
+		//wk.pollEvents();
+		//boolean b = wk.reset();
+		wk = w.take();
 	}
 	
 	public void testStartsForZip() throws Exception{

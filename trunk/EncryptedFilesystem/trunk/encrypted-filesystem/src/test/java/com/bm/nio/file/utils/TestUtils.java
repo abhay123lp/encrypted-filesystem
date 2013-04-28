@@ -108,7 +108,6 @@ public class TestUtils {
 	
 	public static FileSystem newTempFieSystem(FileSystemProviderEncrypted fpe, String path) throws IOException, URISyntaxException{
 		File file = TestUtils.newTempDir(path); 
-		//URI uri1File = Paths.get(file.getCanonicalPath()).toUri();
 		URI uri1Encrypted = TestUtils.uriEncrypted(TestUtils.fileToURI(file));
 		return fpe.newFileSystem(uri1Encrypted, new HashMap<String, Object>());
 	}
