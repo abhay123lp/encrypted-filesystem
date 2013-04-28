@@ -34,16 +34,16 @@ public class WatchServiceEncrypted implements WatchService {
 		mWatcher.close();		
 	}
 
+	//+ Done
 	@Override
 	public WatchKey poll() {
-		// TOTEST
 		return toWatchKeyEncrypted(mWatcher.poll());
 	}
 
+	//+ Done
 	@Override
 	public WatchKey poll(long timeout, TimeUnit unit)
 			throws InterruptedException {
-		// TOTEST
 		return toWatchKeyEncrypted(mWatcher.poll(timeout, unit));
 	}
 
@@ -54,6 +54,8 @@ public class WatchServiceEncrypted implements WatchService {
 	}
 	
 	protected WatchKeyEncrypted toWatchKeyEncrypted(WatchKey key){
+		if (key == null)
+			return null;
 		final WatchKey underKey = key;
 		final Watchable underWatchable = underKey.watchable();
 		Watchable watchable;
@@ -92,9 +94,9 @@ public class WatchServiceEncrypted implements WatchService {
 			mWatchable = watchable;
 		}
 		
+		//+ Done
 		@Override
 		public boolean isValid() {
-			//TOTEST
 			return mKey.isValid();
 		}
 
@@ -129,15 +131,15 @@ public class WatchServiceEncrypted implements WatchService {
 			return res;
 		}
 
+		//+ Done
 		@Override
 		public boolean reset() {
-			// TOTEST
 			return mKey.reset();
 		}
 
+		//+ Done
 		@Override
 		public void cancel() {
-			// TOTEST
 			mKey.cancel();
 		}
 

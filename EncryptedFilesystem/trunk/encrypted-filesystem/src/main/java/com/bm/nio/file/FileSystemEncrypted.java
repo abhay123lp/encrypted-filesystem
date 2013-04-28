@@ -295,18 +295,19 @@ public class FileSystemEncrypted extends FileSystem {
 	 */
 	protected void delete(PathEncrypted path) throws IOException {
 		//DONE: test that deletes correctly
+		final Path fullUnderPath = path.getFullUnderPath();//this.getRootDir().resolve(path.getUnderPath());
 		synchronized (this) {
-			if (path.getUnderPath().equals(mRoot)) {
+			if (fullUnderPath.equals(mRoot)) {
 				//root was deleted - close
 				Files.deleteIfExists(config);
 				try {
-					Files.delete(path.getUnderPath());
+					Files.delete(fullUnderPath);
 				} catch (Exception e) {
 					// some filesystems doesn't allow deleting root, zipfs for example
 				}
 				close();
 			} else
-				Files.delete(path.getUnderPath());
+				Files.delete(fullUnderPath);
 		}
 		//delete some file within filesystem
 	}

@@ -18,6 +18,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.nio.file.spi.FileSystemProvider;
@@ -58,12 +59,16 @@ public class Test {
 		//new Test().testIsAbsoluteResolve();
 		//new Test().testIterator();
 		Path p = Paths.get("/books");
+		Path p1 = Paths.get("/books/123");
 		WatchService w = FileSystems.getDefault().newWatchService();
 		p.register(w, StandardWatchEventKinds.ENTRY_MODIFY, StandardWatchEventKinds.ENTRY_DELETE, StandardWatchEventKinds.ENTRY_CREATE);
+		Files.createDirectories(p1);
+		Files.deleteIfExists(p1);
 		WatchKey wk = w.take();
-		//wk.pollEvents();
+		List<WatchEvent<?>> list = wk.pollEvents();
+		System.out.println(list.size());
 		//boolean b = wk.reset();
-		wk = w.take();
+		//wk = w.take();
 	}
 	
 	public void testStartsForZip() throws Exception{
