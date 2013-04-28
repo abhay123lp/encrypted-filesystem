@@ -5,13 +5,12 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.DirectoryStream;
-import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.ProviderMismatchException;
-import java.nio.file.ReadOnlyFileSystemException;
+import java.nio.file.WatchEvent;
 import java.nio.file.DirectoryStream.Filter;
 import java.nio.file.WatchEvent.Kind;
 import java.nio.file.WatchEvent.Modifier;
@@ -22,8 +21,6 @@ import java.security.GeneralSecurityException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-import com.sun.nio.zipfs.ZipDirectoryStream;
-import com.sun.nio.zipfs.ZipPath;
 
 /**
  * @author Mike
@@ -54,18 +51,6 @@ public class PathEncrypted implements Path {
 		} catch (GeneralSecurityException e1) {
 			return false;
 		}
-//		if (!mFs.isSubPath(path))
-//			return false;
-//		//calculate encrypted path = F11A
-//		Path encPath = mFs.getRootDir().relativize(path);//= path - root
-//		for (int i = 0; i < encPath.getNameCount(); i ++){
-//			String encName = path.getName(i).getFileName().toString();
-//			try {
-//				mFs.decryptName(encName);
-//			} catch (GeneralSecurityException e) {
-//				return false;
-//			}
-//		}
 		return true;
 	}
 	
@@ -97,10 +82,16 @@ public class PathEncrypted implements Path {
 	public boolean equals(Object obj) {
         return obj != null &&
                 obj instanceof PathEncrypted &&
-                this.mFs == ((PathEncrypted)obj).mFs &&
+                this.mFs.equals(((PathEncrypted)obj).mFs) &&
                 compareTo((Path) obj) == 0;
 	}
 
+	//+ Done
+	@Override
+	public int hashCode() {
+		return toUri().hashCode();
+	}
+	
 	//+ Done
 	@Override
 	public int compareTo(Path other) {
@@ -131,12 +122,6 @@ public class PathEncrypted implements Path {
 		} catch (GeneralSecurityException e) {
 			throw new RuntimeException("Unable to decode path " + mUnderPath, e);
 		}
-		
-//		if (this.isAbsolute())
-//			//DONE consider returning decrypted path. Returning decrypted path
-//			return mUnderPath.toString();
-//		else
-//			return mUnderPath.toString();
 	}
 	
 	@Override
@@ -239,9 +224,6 @@ public class PathEncrypted implements Path {
 			return getRelativePath().subpath(beginIndex, endIndex);
 		else
 			return mFs.toEncrypted(mUnderPath.subpath(beginIndex, endIndex));
-//		Path relative = getRelativePath();
-//		validatePath(other);
-//		return mFs.toEncrypted(mUnderPath.subpath(beginIndex, endIndex));
 	}
 
 	//+ Done
@@ -415,18 +397,28 @@ public class PathEncrypted implements Path {
 		return  mFs.getRootDir().resolve(mUnderPath).toFile();
 	}
 
+	//+ Done
 	@Override
 	public WatchKey register(WatchService watcher, Kind<?>[] events,
 			Modifier... modifiers) throws IOException {
-		// TODO Auto-generated method stub
-		return null;
+		if (!(watcher instanceof WatchServiceEncrypted))
+			throw new ProviderMismatchException("Incompatible watch service to register");
+		final Path wholeUnderPath = mFs.getRootDir().resolve(mUnderPath);
+		final WatchServiceEncrypted wse = (WatchServiceEncrypted) watcher;
+		final WatchKey underKey = wholeUnderPath.register(wse.getUnderWatcher(), events, modifiers);
+		//DONE: here if someone will call watcher.poll in another tread - watcher can't find key because it
+		// still don't have it
+		// Resolution: as soon as we use new WatchKeyEncrypted every time - watcher.poll will 
+		//return correct result
+		//final WatchKey key = new WatchServiceEncrypted.WatchKeyEncrypted(underKey, wse, this);
+		return wse.toWatchKeyEncrypted(underKey);
 	}
 
+	//+ Done
 	@Override
 	public WatchKey register(WatchService watcher, Kind<?>... events)
 			throws IOException {
-		// TODO Auto-generated method stub
-		return null;
+		return register(watcher, events, new WatchEvent.Modifier[0]);
 	}
 
 	//+ Done

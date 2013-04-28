@@ -79,21 +79,21 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 
 		@Override
 		public int compare(Path o1, Path o2) {
-			
-			final int o1Cnt = o1.getNameCount();
-			final int o2Cnt = o2.getNameCount();
-			final int oMin = Math.min(o1Cnt, o2Cnt);
-			for (int i = 0; i < oMin; i ++){
-				final int compare = o1.getName(i).compareTo(o2.getName(i));
-				if (compare != 0)
-					return compare;
-			}
-			if (o1Cnt == o2Cnt)
-				return 0;
-			else if (o1Cnt > o2Cnt)//longer-->greater
-				return 1;
-			else 
-				return -1;
+			return o1.toUri().compareTo(o2.toUri());
+//			final int o1Cnt = o1.getNameCount();
+//			final int o2Cnt = o2.getNameCount();
+//			final int oMin = Math.min(o1Cnt, o2Cnt);
+//			for (int i = 0; i < oMin; i ++){
+//				final int compare = o1.getName(i).compareTo(o2.getName(i));
+//				if (compare != 0)
+//					return compare;
+//			}
+//			if (o1Cnt == o2Cnt)
+//				return 0;
+//			else if (o1Cnt > o2Cnt)//longer-->greater
+//				return 1;
+//			else 
+//				return -1;
 		}
 		
 	}
@@ -213,9 +213,12 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	 */
 	//Covered +
 	protected FileSystemEncrypted getFileSystemInternal(Path p){
+		
 		//should find root folder 
+		//added filesystem check p.getFileSystem().equals(h.getKey().getFileSystem())
+		//to prevent errors when comparing pah from different providers or filesystems. They should not be equal
 		final Entry<Path, FileSystemEncrypted> h = filesystems.ceilingEntry(p);
-		if (h != null){
+		if (h != null && p.getFileSystem().equals(h.getKey().getFileSystem())){
 			final Path ceiling = h.getKey();
 			if (p.startsWith(ceiling))
 				return h.getValue();
@@ -223,7 +226,7 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 				return h.getValue();
 		}
 		final Entry<Path, FileSystemEncrypted> l = filesystems.floorEntry(p);
-		if (l != null){
+		if (l != null && p.getFileSystem().equals(l.getKey().getFileSystem())){
 			final Path floor = l.getKey();
 			if (p.startsWith(floor))
 				return l.getValue();
@@ -231,6 +234,58 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 				return l.getValue();
 		}		
 		return null;
+		
+//		final String pStr = p.toUri().getPath();
+//		//should find root folder 
+//		//compare using URI's path
+//		final Entry<Path, FileSystemEncrypted> h = filesystems.ceilingEntry(p);
+//		if (h != null && p.getFileSystem().equals(h.getKey().getFileSystem())){
+//			final String ceiling = h.getKey().toUri().getPath();
+//			if (ceiling == null || pStr == null){
+//				if (ceiling == null && pStr == null)
+//					return h.getValue();
+//				else
+//					return null;
+//			}
+//			if (pStr.startsWith(ceiling))
+//				return h.getValue();
+//			if (ceiling.startsWith(pStr))
+//				return h.getValue();
+//		}
+//		final Entry<Path, FileSystemEncrypted> l = filesystems.floorEntry(p);
+//		if (l != null && p.getFileSystem().equals(l.getKey().getFileSystem())){
+//			final String floor = l.getKey().toUri().getPath();
+//			if (floor == null || pStr == null){
+//				if (floor == null && pStr == null)
+//					return l.getValue();
+//				else
+//					return null;
+//			}
+//			if (pStr.startsWith(floor))
+//				return l.getValue();
+//			if (floor.startsWith(pStr))
+//				return l.getValue();
+//		}		
+//		return null;
+
+//		//should find root folder 
+//		final Entry<Path, FileSystemEncrypted> h = filesystems.ceilingEntry(p);
+//		if (h != null){
+//			final Path ceiling = h.getKey();
+//			if (p.startsWith(ceiling))
+//				return h.getValue();
+//			if (ceiling.startsWith(p))
+//				return h.getValue();
+//		}
+//		final Entry<Path, FileSystemEncrypted> l = filesystems.floorEntry(p);
+//		if (l != null){
+//			final Path floor = l.getKey();
+//			if (p.startsWith(floor))
+//				return l.getValue();
+//			if (floor.startsWith(p))
+//				return l.getValue();
+//		}		
+//		return null;
 	}
 	
     /**

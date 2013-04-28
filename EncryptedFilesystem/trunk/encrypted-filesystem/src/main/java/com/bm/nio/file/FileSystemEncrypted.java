@@ -126,7 +126,7 @@ public class FileSystemEncrypted extends FileSystem {
 		if (!isSubPath(plainUnderPath))
 			throw new IllegalArgumentException("path " + plainUnderPath + " does not belong filesystem path " + mRoot);
 		Path res = mRoot;
-		Path remainderPath;
+		Path remainderPath;//path remainder inside FileSystem
 		if (plainUnderPath.isAbsolute()){//Path(file:///D:/enc1/dir)
 			remainderPath = mRoot.relativize(plainUnderPath);//Path(file:///dir)
 			res = mRoot;
@@ -138,6 +138,14 @@ public class FileSystemEncrypted extends FileSystem {
 		// === encrypt ===
 		for (int i = 0; i < remainderPath.getNameCount(); i ++){
 			String currName = remainderPath.getName(i).toString();
+			// === ===
+			// fix for filesystems that can't resolve against empty path
+			if ((!plainUnderPath.isAbsolute()) && i == 0){
+				res = remainderPath.getName(i);
+				continue;
+			}
+			// === ===
+			
 			//should not encrypt ".." or "."
 			if (plainNames.contains(currName))
 				res = res.resolve(currName);
@@ -169,6 +177,13 @@ public class FileSystemEncrypted extends FileSystem {
 		// === decrypt ===
 		for (int i = 0; i < remainderPath.getNameCount(); i ++){
 			String currName = remainderPath.getName(i).toString();
+			// === ===
+			// fix for filesystems that can't resolve against empty path
+			if ((!encUnderPath.isAbsolute()) && i == 0){
+				res = remainderPath.getName(i);
+				continue;
+			}
+			// === ===
 			//should not decrypt ".." or "."
 			if (plainNames.contains(currName))
 				res = res.resolve(currName);
@@ -273,6 +288,7 @@ public class FileSystemEncrypted extends FileSystem {
 		return !isClosed;
 	}
 
+	//+ Done
 	/**
 	 * @param path - encrypted path, encrypted:file:///D:/enc1/dir
 	 * do not check since used internally, assume path belongs to this filesystem
@@ -283,7 +299,11 @@ public class FileSystemEncrypted extends FileSystem {
 			if (path.getUnderPath().equals(mRoot)) {
 				//root was deleted - close
 				Files.deleteIfExists(config);
-				Files.delete(path.getUnderPath());
+				try {
+					Files.delete(path.getUnderPath());
+				} catch (Exception e) {
+					// some filesystems doesn't allow deleting root, zipfs for example
+				}
 				close();
 			} else
 				Files.delete(path.getUnderPath());
@@ -291,6 +311,7 @@ public class FileSystemEncrypted extends FileSystem {
 		//delete some file within filesystem
 	}
 	
+	//+ Done
 	public void delete() throws IOException {
 		this.delete(toEncrypted(mRoot));
 	}
@@ -330,10 +351,10 @@ public class FileSystemEncrypted extends FileSystem {
 		return null;
 	}
 
+	//+ Done
 	@Override
 	public WatchService newWatchService() throws IOException {
-		// TODO Auto-generated method stub
-		return null;
+		return new WatchServiceEncrypted(mRoot.getFileSystem().newWatchService(), this);
 	}
 
 }
