@@ -54,8 +54,8 @@ public class SeekableByteChannelEncryptedTest {
 	private synchronized SeekableByteChannelEncrypted getSeekableByteChannelEncrypted(
 			SeekableByteChannel underChannel, String transformation, Integer blockSize) throws Exception {
 		HashMap<String, Object> props = new HashMap<String, Object>();
-		props.put(SeekableByteChannelEncrypted.EncryptedConfig.PLAIN_BLOCK_SIZE, blockSize);
-		props.put(SeekableByteChannelEncrypted.EncryptedConfig.TRANSFORMATION, transformation);
+		props.put(SeekableByteChannelEncrypted.ConfigEncrypted.PROPERTY_PLAIN_BLOCK_SIZE, blockSize);
+		props.put(SeekableByteChannelEncrypted.ConfigEncrypted.PROPERTY_TRANSFORMATION, transformation);
 		//return new SeekableByteChannelEncrypted(underChannel, props);
 		SeekableByteChannelEncrypted ce = SeekableByteChannelEncrypted.getChannel(underChannel);
 		if (ce != null && ce.isOpen())

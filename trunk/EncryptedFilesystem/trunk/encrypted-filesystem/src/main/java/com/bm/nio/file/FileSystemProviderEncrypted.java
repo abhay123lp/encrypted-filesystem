@@ -39,9 +39,11 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 
+
 import com.bm.nio.channels.SeekableByteChannelEncrypted;
 import com.sun.nio.zipfs.ZipFileSystemProvider;
 
+import static com.bm.nio.file.FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CREATE_UNDERLYING_FILE_SYSTEM;
 
 
 
@@ -108,7 +110,8 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 		//otherwise it will be resolved incorrectly for relative paths
 		try {
 			//final Path underPath = ((PathEncrypted)path).getUnderPath();
-			final Path underPath = ((PathEncrypted)path.toAbsolutePath().normalize()).getUnderPath();
+			final Path underPath = ((PathEncrypted)path).getFullUnderPath();//((PathEncrypted)path.toAbsolutePath().normalize()).getUnderPath();
+			//final Path underPath = ((PathEncrypted)path.toAbsolutePath().normalize()).getUnderPath();
 			//final Path underPath = ((PathEncrypted)path.toRealPath()).getUnderPath();
 			
 			
@@ -143,7 +146,7 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
             throws IOException
         {
             Path path = null;
-            if (Boolean.TRUE.equals(env.get(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CREATE_UNDERLYING_FILE_SYSTEM)))
+            if (Boolean.TRUE.equals(env.get(ENV_CREATE_UNDERLYING_FILE_SYSTEM)))
 				try {
 				    path = uriToPath(uri);
 				} catch (FileSystemNotFoundException e) {

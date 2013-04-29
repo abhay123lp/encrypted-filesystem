@@ -56,10 +56,14 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
     private final int encBlockSize;
     private long mDecPos = 0;
     private long mDecSize = 0;
-    public static class EncryptedConfig{
-	    public static final String PLAIN_BLOCK_SIZE = "block.size";
-	    public static final String PASSWORD = "password";
-	    public static final String TRANSFORMATION = "transformation";
+    public static class ConfigEncrypted{
+	    public static final String PROPERTY_PLAIN_BLOCK_SIZE = "block.size";
+	    public static final String PROPERTY_PASSWORD = "password";
+	    public static final String PROPERTY_TRANSFORMATION = "transformation";
+	    //new
+		public static final String PROPERTY_SALT = "salt";
+		public static final String PROPERTY_KEY_STRENGTH = "keystrength";
+		public static final String PROPERTY_ITERATION_COUNT = "iterationcount";
     }
     
 	protected final SeekableByteChannel mChannel;
@@ -118,8 +122,8 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
         iv = initEncipher(encipher, key);
         initDecipher(decipher, key, iv);
         
-        decBlockSize = props.containsKey(EncryptedConfig.PLAIN_BLOCK_SIZE) ?
-    			(Integer)props.get(EncryptedConfig.PLAIN_BLOCK_SIZE) : 8192; //encipher.getOutputSize(8192);
+        decBlockSize = props.containsKey(ConfigEncrypted.PROPERTY_PLAIN_BLOCK_SIZE) ?
+    			(Integer)props.get(ConfigEncrypted.PROPERTY_PLAIN_BLOCK_SIZE) : 8192; //encipher.getOutputSize(8192);
 	    if (decBlockSize <= 0) {
 	        throw new IllegalArgumentException("Block size <= 0");
 	    }
@@ -161,10 +165,10 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 	
     protected void initProps(Map<String, ?> props) throws GeneralSecurityException{
     	//TODO: write correct initialization and parse properties
-        char [] pwd = props.containsKey(EncryptedConfig.PASSWORD) ?
-    			(char [] )props.get(EncryptedConfig.PASSWORD) : new char[3];
-    	transformation = props.containsKey(EncryptedConfig.TRANSFORMATION) ?
-    					 (String)props.get(EncryptedConfig.TRANSFORMATION) : transformation;
+        char [] pwd = props.containsKey(ConfigEncrypted.PROPERTY_PASSWORD) ?
+    			(char [] )props.get(ConfigEncrypted.PROPERTY_PASSWORD) : new char[3];
+    	transformation = props.containsKey(ConfigEncrypted.PROPERTY_TRANSFORMATION) ?
+    					 (String)props.get(ConfigEncrypted.PROPERTY_TRANSFORMATION) : transformation;
     	//---
         SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
         KeySpec spec = new PBEKeySpec(pwd, salt, iterationCount, keyStrength);
