@@ -43,7 +43,9 @@ public class TestUtils {
 					@Override
 					public FileVisitResult visitFileFailed(Path file,
 							IOException exc) throws IOException {
-			            Files.delete(file);
+						//consider using deleteIfExists
+						//otherwise will throw an error if file is missing
+						Files.delete(file);
 			            return FileVisitResult.CONTINUE;
 					}
 
@@ -52,8 +54,8 @@ public class TestUtils {
 							IOException exc) throws IOException {
 				           if (exc == null)
 				            {
-				                Files.delete(dir);
-				                return FileVisitResult.CONTINUE;
+				        	   Files.delete(dir);
+				        	   return FileVisitResult.CONTINUE;
 				            }
 				            else
 				            {
@@ -79,8 +81,8 @@ public class TestUtils {
 	public static File newTempDir(String path){
 		File dir = new File(path);
 		if (dir.exists())
-			//dir.delete();
-			delete(dir);
+			return dir;
+//			delete(dir);
 		dir.mkdirs();
 		return dir;
 	}

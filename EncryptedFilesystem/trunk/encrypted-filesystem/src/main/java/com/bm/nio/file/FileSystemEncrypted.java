@@ -1,35 +1,25 @@
 package com.bm.nio.file;
 
-import java.io.File;
 import java.io.IOException;
-
 import java.net.URI;
-import java.net.URISyntaxException;
+import java.nio.file.DirectoryNotEmptyException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.FileStore;
 import java.nio.file.FileSystem;
-import java.nio.file.FileSystemException;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
-import java.nio.file.Paths;
 import java.nio.file.WatchService;
 import java.nio.file.attribute.UserPrincipalLookupService;
 import java.nio.file.spi.FileSystemProvider;
 import java.security.GeneralSecurityException;
-import java.security.InvalidAlgorithmParameterException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import javax.crypto.IllegalBlockSizeException;
-
-import sun.font.CreatedFontTracker;
 
 
 /**
@@ -45,16 +35,33 @@ public class FileSystemEncrypted extends FileSystem {
 	private Set<String> plainNames = new HashSet<String>(Arrays.asList(new String[] {"..", ".", "~"}));//Collections.emptySet();
 	
 	public static final class FileSystemEncryptedEnvParams{
-		//name of configuration file for the filesystem
+		/**
+		 * Name of configuration file for the filesystem. <br>
+		 * Should be present either {@value #ENV_CONFIG_FILE} or {@value #ENV_CONFIG}<br>
+		 * Value Type: {@link String}
+		 */
 		public static final String ENV_CONFIG_FILE = "env.config.file";
-		//Set of names that should not be encoded
+		/**
+		 * Encryption configuration.  <br>
+		 * Should be present either {@value #ENV_CONFIG_FILE} or {@value #ENV_CONFIG}. <br>
+		 * Value Type: {@link ConfigEncrypted}
+		 */
+		public static final String ENV_CONFIG = "env.config";
+		/**
+		 * Set of names that should not be encoded.<br>
+		 * Value Type: {@link Set} of {@link String} 
+		 */
 		public static final String ENV_PLAIN_NAMES = "env.plain.names";
-		//used by Provider, instructs to create under filesystem if missing
+		/**
+		 * Used by Provider, instructs to create underlying filesystem if missing.
+		 * Value Type: {@link boolean} 
+		 */
 		public static final String ENV_CREATE_UNDERLYING_FILE_SYSTEM = "createUnderFileSystem";
 	}
 	
 	private String configFile = "config.properties";
-	private Path config;
+	private Path configPath;
+	private ConfigEncrypted config = ConfigEncrypted.newConfig();
 	/**
 	 * @param provider
 	 * @param path - path of underlying filesystem, i.e. D:/enc1
@@ -64,10 +71,8 @@ public class FileSystemEncrypted extends FileSystem {
 	FileSystemEncrypted(FileSystemProviderEncrypted provider,
             Path path,
             Map<String, ?> env) throws IOException{
-		if (!Files.isDirectory(path))//TODO: test with ZipFileSystem - is it's root defined as file or folder?
+		if (!Files.isDirectory(path))//DONE: test with ZipFileSystem - is it's root defined as file or folder?
 			throw new InvalidPathException(path.toString(), path + " can not be used as encrypted storage - not a directory");
-		
-
 		// parse env
 		Object o;
 		//
@@ -82,15 +87,88 @@ public class FileSystemEncrypted extends FileSystem {
 		
 		//TODO: create common functions to encryps/decrypt file by password (store cipher in FileSystemEncrypted)
 		//read encrypted properties from file
-		o = env.get(FileSystemEncryptedEnvParams.ENV_CONFIG_FILE);
-		if (o != null)
-			configFile = o.toString();
-		config = path.resolve(configFile);
-		if (!Files.exists(config))
-			Files.createFile(config);
+//		o = env.get(FileSystemEncryptedEnvParams.ENV_CONFIG_FILE);
+//		o1 = env.get(FileSystemEncryptedEnvParams.ENV_CONFIG);
+//		if (o != null && o1 != null)
+//			throw new IllegalArgumentException(
+//					"Should be present only one parameter of: "
+//							+ FileSystemEncryptedEnvParams.ENV_CONFIG_FILE
+//							+ ", " + FileSystemEncryptedEnvParams.ENV_CONFIG);
+//		if (o1 != null)
+//			config = (ConfigEncrypted)o1;
+//		if (o != null)
+//			configFile = o.toString();
+//		configPath = path.resolve(configFile);
+//		if (!Files.exists(configPath)){
+//			Files.createFile(configPath);
+//			config.saveConfig(configPath);
+//		}
     	mRoot = path.toAbsolutePath();
     	mProvider = provider;
+		config = loadConfig(mRoot, env);
     }
+	
+	/**
+	 * @return encryption configuration
+	 */
+	public ConfigEncrypted getConfig(){
+		return config;
+	}
+	
+	/**
+	 * @return path to the config file
+	 */
+	public Path getConfigPath(){
+		return configPath;
+	}
+	
+	/**
+	 * Loads config either from config class or config file
+	 * @param path - root pat of the filesystem
+	 * @param env - parameters that may contain config class of config file name
+	 * @return config class
+	 * @throws IOException
+	 */
+	protected ConfigEncrypted loadConfig(Path path, Map<String, ?> env) throws IOException{
+		ConfigEncrypted res = config;
+		Object envConfFile, envConf;
+		envConfFile = env.get(FileSystemEncryptedEnvParams.ENV_CONFIG_FILE);
+		envConf = env.get(FileSystemEncryptedEnvParams.ENV_CONFIG);
+		if (envConfFile != null && envConf != null)
+			throw new IllegalArgumentException(
+					"Should be present only one parameter of: "
+							+ FileSystemEncryptedEnvParams.ENV_CONFIG_FILE
+							+ ", " + FileSystemEncryptedEnvParams.ENV_CONFIG);
+		if (envConf != null)
+			res = (ConfigEncrypted)envConf;
+		if (envConfFile != null)
+			configFile = envConfFile.toString();
+		configPath = path.resolve(configFile);
+		if (!Files.exists(configPath)){
+			Files.createFile(configPath);
+			res.saveConfig(configPath);
+		} else {
+			res = ConfigEncrypted.loadConfig(configPath);
+		}
+		return res;
+	}
+	
+//	protected void loadConfig() {
+//		Properties p;
+//		try (OutputStream os = Files.newOutputStream(configPath, StandardOpenOption.WRITE);){
+//			p = new Properties();
+//			p.setProperty("123", "value");
+//			p.store(os, null);
+//		} catch (IOException e) {
+//			return;
+//		}
+//		final String PROPERTY_TRANSFORMATION = "transformation";
+//		final String PROPERTY_SALT = "salt";
+//		final String PROPERTY_KEY_STRENGTH = "keystrength";
+//		final String PROPERTY_ITERATION_COUNT = "iterationcount";
+//		final String PROPERTY_BLOCK_SIZE = "blocksize";
+//		p.getProperty(PROPERTY_TRANSFORMATION);
+//	}
 	
 	/**
 	 * @param uri - underlying uri, i.e. file://D:/enc1/F11A
@@ -278,7 +356,7 @@ public class FileSystemEncrypted extends FileSystem {
 	@Override
 	public synchronized void close() throws IOException {
 		// TODO remove itself from filesystemprovider
-		//also need to close channels and streams
+		//also need to close channels and streams, consider using by many threads
 		mProvider.closeFilesystem(this);
 		isClosed = true;
 	}
@@ -298,16 +376,38 @@ public class FileSystemEncrypted extends FileSystem {
 		final Path fullUnderPath = path.getFullUnderPath();//this.getRootDir().resolve(path.getUnderPath());
 		synchronized (this) {
 			if (fullUnderPath.equals(mRoot)) {
-				//root was deleted - close
-				Files.deleteIfExists(config);
+				//check that no objects are left from this filesystem, otherwise throw exception
+				//if not checked then it can remove config with some encrypted folders are left
+				try (DirectoryStream<Path> ds = Files.newDirectoryStream(mRoot);){
+					for (Path p : ds){
+						if (p instanceof PathEncrypted)
+							if (this.equals(((PathEncrypted)p).getFileSystem()))
+								throw new DirectoryNotEmptyException(path.toString());
+					}
+				}
+
+				//here no filesystem objects left, can safely delete config
+				Files.deleteIfExists(configPath);
 				try {
 					Files.delete(fullUnderPath);
+				} catch (DirectoryNotEmptyException e) {
+//					//weird behavior - even if delete() was called for all files, they
+					//can be deleted milliseconds later if were watched by watch service which wasn't
+					//properly closed
+//					System.out.println("Exception:");
+//					try(DirectoryStream<Path> ds = Files.newDirectoryStream(fullUnderPath)){
+//						for (Path p : ds){
+//							System.out.println(p);
+//						}
+//					}
+					throw e;
 				} catch (Exception e) {
 					// some filesystems doesn't allow deleting root, zipfs for example
 				}
 				close();
-			} else
+			} else{
 				Files.delete(fullUnderPath);
+			}
 		}
 		//delete some file within filesystem
 	}

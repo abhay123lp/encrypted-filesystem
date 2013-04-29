@@ -3,53 +3,33 @@ package com.bm.nio.file;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
-import static java.nio.file.StandardWatchEventKinds.OVERFLOW;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
-import java.nio.ByteBuffer;
-import java.nio.channels.SeekableByteChannel;
 import java.nio.file.ClosedWatchServiceException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
-import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
-import java.nio.file.Watchable;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.zip.ZipFile;
-
-import javax.management.RuntimeErrorException;
-import javax.swing.plaf.basic.BasicOptionPaneUI;
 
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
-import sun.nio.fs.WindowsFileSystemProvider;
-import sun.org.mozilla.javascript.internal.ast.WithStatement;
-
 import com.bm.nio.file.utils.TestUtils;
-import com.sun.nio.zipfs.ZipFileSystem;
-import com.sun.nio.zipfs.ZipPath;
 
 public class PathEncryptedTest {
 
@@ -436,6 +416,10 @@ public class PathEncryptedTest {
 			Assert.assertEquals(a1.relativize(a2), b2);
 		}
 		key.reset();
+		//if not closed then it behaves weirdly
+		//it does delayed delete causing DirectoryNotEmpty exception throwing from 
+		//FileSystemEncrypted.delete when deleting root
+		ws.close();
 	}
 	
 	@Test

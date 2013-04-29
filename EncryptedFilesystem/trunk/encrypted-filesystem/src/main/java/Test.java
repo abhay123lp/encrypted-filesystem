@@ -33,6 +33,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 import javax.xml.bind.DatatypeConverter;
@@ -58,17 +59,12 @@ public class Test {
 		//new Test().testFileName();
 		//new Test().testIsAbsoluteResolve();
 		//new Test().testIterator();
-		Path p = Paths.get("/books");
-		Path p1 = Paths.get("/books/123");
-		WatchService w = FileSystems.getDefault().newWatchService();
-		p.register(w, StandardWatchEventKinds.ENTRY_MODIFY, StandardWatchEventKinds.ENTRY_DELETE, StandardWatchEventKinds.ENTRY_CREATE);
-		Files.createDirectories(p1);
-		Files.deleteIfExists(p1);
-		WatchKey wk = w.take();
-		List<WatchEvent<?>> list = wk.pollEvents();
-		System.out.println(list.size());
-		//boolean b = wk.reset();
-		//wk = w.take();
+		Properties p = new Properties();
+		p.put("123", new Object().toString());
+		p.storeToXML(System.out, "comment");
+		
+		System.out.println(Test.class.getPackage().getImplementationVersion());
+		
 	}
 	
 	public void testStartsForZip() throws Exception{
