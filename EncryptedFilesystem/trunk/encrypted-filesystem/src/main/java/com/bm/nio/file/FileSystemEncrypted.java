@@ -56,10 +56,15 @@ public class FileSystemEncrypted extends FileSystem {
 		 * Used by Provider, instructs to create underlying filesystem if missing.
 		 * Value Type: {@link boolean} 
 		 */
-		public static final String ENV_CREATE_UNDERLYING_FILE_SYSTEM = "createUnderFileSystem";
+		public static final String ENV_CREATE_UNDERLYING_FILE_SYSTEM = "env.createUnderlyingFileSystem";
+		/**
+		 * Password for file system
+		 * Value Type: {@link char []} 
+		 */
+		public static final String ENV_PASSWORD = "env.password";
 	}
 	
-	private String configFile = "config.properties";
+	private String configFile = "config.xml";
 	private Path configPath;
 	private ConfigEncrypted config = ConfigEncrypted.newConfig();
 	/**
@@ -79,7 +84,7 @@ public class FileSystemEncrypted extends FileSystem {
 		o = env.get(FileSystemEncryptedEnvParams.ENV_PLAIN_NAMES);
 		if (o != null){
 			if (!(o instanceof Set)){
-				throw new IllegalArgumentException("Parameter " + FileSystemEncryptedEnvParams.ENV_PLAIN_NAMES + " must be type of " + Set.class);
+				throw new IllegalArgumentException("Parameter " + FileSystemEncryptedEnvParams.ENV_PLAIN_NAMES + " must be type of " + Set.class.getSimpleName());
 			} else{
 				plainNames = (Set<String>)o;
 			}
@@ -131,24 +136,41 @@ public class FileSystemEncrypted extends FileSystem {
 	 */
 	protected ConfigEncrypted loadConfig(Path path, Map<String, ?> env) throws IOException{
 		ConfigEncrypted res = config;
-		Object envConfFile, envConf;
+		Object envConfFile, envConf, envPwd;
 		envConfFile = env.get(FileSystemEncryptedEnvParams.ENV_CONFIG_FILE);
 		envConf = env.get(FileSystemEncryptedEnvParams.ENV_CONFIG);
-		if (envConfFile != null && envConf != null)
-			throw new IllegalArgumentException(
-					"Should be present only one parameter of: "
-							+ FileSystemEncryptedEnvParams.ENV_CONFIG_FILE
-							+ ", " + FileSystemEncryptedEnvParams.ENV_CONFIG);
+		envPwd = env.get(FileSystemEncryptedEnvParams.ENV_PASSWORD);
+		char [] pwd;
+		if (envPwd == null){
+			throw new IllegalArgumentException("Parameter " + FileSystemEncryptedEnvParams.ENV_PASSWORD + " must be present");
+		} else{
+			if (!(envPwd instanceof char [])){
+				throw new IllegalArgumentException("Parameter " + FileSystemEncryptedEnvParams.ENV_PASSWORD + " must be type of " + (new char [0]).getClass().getSimpleName());
+			} else{
+				pwd = (char []) envPwd;
+			}
+		}
+		//
+//		if (envConfFile != null && envConf != null)
+//			throw new IllegalArgumentException(
+//					"Should be present only one parameter of: "
+//							+ FileSystemEncryptedEnvParams.ENV_CONFIG_FILE
+//							+ ", " + FileSystemEncryptedEnvParams.ENV_CONFIG);
 		if (envConf != null)
 			res = (ConfigEncrypted)envConf;
 		if (envConfFile != null)
 			configFile = envConfFile.toString();
 		configPath = path.resolve(configFile);
-		if (!Files.exists(configPath)){
+		if (Files.exists(configPath)){
+			if (envConf != null)
+				throw new IllegalArgumentException("Existing config file " + envConfFile
+						+ " cannot be overriden by "
+						+ FileSystemEncryptedEnvParams.ENV_CONFIG
+						+ " config parameter");
+			res = ConfigEncrypted.loadConfig(configPath);
+		} else {
 			Files.createFile(configPath);
 			res.saveConfig(configPath);
-		} else {
-			res = ConfigEncrypted.loadConfig(configPath);
 		}
 		return res;
 	}

@@ -178,6 +178,10 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	@Override
 	public FileSystem newFileSystem(Path path, Map<String, ?> env)
 			throws IOException {
+		//if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS));//TODO: consider using link options
+		if (!Files.exists(path))
+			throw new InvalidPathException(path.toString(),
+					" Path does not exist and can not be used as encrypted storage");
 		//TOD1O: create configuration file
 		// or choose already existing one
 		// configuration file is managed by filesystem!
