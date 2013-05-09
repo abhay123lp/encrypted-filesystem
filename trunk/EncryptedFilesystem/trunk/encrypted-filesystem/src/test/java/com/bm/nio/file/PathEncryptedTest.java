@@ -451,7 +451,7 @@ public class PathEncryptedTest {
 		key.reset();
 		key = ws.poll();
 		List<WatchEvent<?>> events = key.pollEvents();
-		Assert.assertEquals(events.size(), 2);
+		Assert.assertEquals(events.size(), 2); 
 		Assert.assertEquals(events.get(0).kind(), ENTRY_CREATE);
 		Assert.assertEquals(events.get(1).kind(), ENTRY_DELETE);
 		// ===

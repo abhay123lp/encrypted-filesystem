@@ -2,6 +2,7 @@ import java.io.File;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
@@ -23,6 +24,7 @@ import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.nio.file.spi.FileSystemProvider;
 import java.security.GeneralSecurityException;
+import java.security.spec.KeySpec;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -36,7 +38,18 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.SecretKeySpec;
 import javax.xml.bind.DatatypeConverter;
+
+import org.simpleframework.xml.Element;
+import org.simpleframework.xml.Namespace;
+import org.simpleframework.xml.Root;
+import org.simpleframework.xml.core.Persister;
+import org.simpleframework.xml.stream.Format;
 
 import sun.nio.fs.WindowsFileSystemProvider;
 
@@ -59,11 +72,11 @@ public class Test {
 		//new Test().testFileName();
 		//new Test().testIsAbsoluteResolve();
 		//new Test().testIterator();
-		Properties p = new Properties();
-		p.put("123", new Object().toString());
-		p.storeToXML(System.out, "comment");
+		//new Test().testXML();
+		Cipher encipher = Cipher.getInstance("AES/CFB/NoPadding");
+		System.out.println(encipher.getProvider().getInfo());
+		System.out.println(encipher.getProvider().getName());
 		
-		System.out.println(Test.class.getPackage().getImplementationVersion());
 		
 	}
 	
@@ -231,4 +244,21 @@ public class Test {
 		}
 	}
 
+	public void testXML() throws Exception {
+		@Root
+		@Namespace
+		class C1 {
+			@Element
+			private int i;
+			@Element
+			private int j;
+		}
+		C1 c1 = new C1();
+		Persister serializer = new Persister(new Format("<?xml version=\"1.0\" encoding= \"UTF-8\" ?>"));
+		StringWriter sw = new StringWriter();
+		serializer.write(c1, sw);
+		System.out.println(sw.getBuffer().toString());
+		String str = "<c1><i>1</i><j>2</j></c1>";
+		serializer.read(c1, str);
+	}
 }

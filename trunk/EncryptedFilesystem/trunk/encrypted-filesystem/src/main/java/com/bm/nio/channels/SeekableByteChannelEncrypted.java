@@ -169,7 +169,7 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
     			(char [] )props.get(ConfigEncrypted.PROPERTY_PASSWORD) : new char[3];
     	transformation = props.containsKey(ConfigEncrypted.PROPERTY_TRANSFORMATION) ?
     					 (String)props.get(ConfigEncrypted.PROPERTY_TRANSFORMATION) : transformation;
-    	//---
+    	//--- transform password to a key ---
         SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
         KeySpec spec = new PBEKeySpec(pwd, salt, iterationCount, keyStrength);
         SecretKey tmp = factory.generateSecret(spec);

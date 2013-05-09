@@ -14,6 +14,8 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.HashMap;
 
+import javax.management.RuntimeErrorException;
+
 import com.bm.nio.file.FileSystemEncrypted;
 import com.bm.nio.file.FileSystemProviderEncrypted;
 
@@ -83,7 +85,18 @@ public class TestUtils {
 		if (dir.exists())
 			return dir;
 //			delete(dir);
-		dir.mkdirs();
+		//can return false if Far manager has previously opened path
+		//when it was recently deleted
+		int i = 0;
+		while (!dir.mkdirs()){
+			i ++;
+			try {
+				Thread.sleep(100);
+			} catch (InterruptedException e) {
+			}
+			if (i == 10)
+				throw new RuntimeException("Can't create directory for testing: " + path);
+		}
 		return dir;
 	}
 	
