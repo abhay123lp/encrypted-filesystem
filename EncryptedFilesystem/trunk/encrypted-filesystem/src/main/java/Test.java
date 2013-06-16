@@ -73,11 +73,11 @@ public class Test {
 		//new Test().testIsAbsoluteResolve();
 		//new Test().testIterator();
 		//new Test().testXML();
-		Cipher encipher = Cipher.getInstance("AES/CFB/NoPadding");
-		System.out.println(encipher.getProvider().getInfo());
-		System.out.println(encipher.getProvider().getName());
+//		Cipher encipher = Cipher.getInstance("AES/CFB/NoPadding");
+//		System.out.println(encipher.getProvider().getInfo());
+//		System.out.println(encipher.getProvider().getName());
 		
-		
+		new Test().testSynchronized();
 	}
 	
 	public void testStartsForZip() throws Exception{
@@ -260,5 +260,48 @@ public class Test {
 		System.out.println(sw.getBuffer().toString());
 		String str = "<c1><i>1</i><j>2</j></c1>";
 		serializer.read(c1, str);
+	}
+	
+	public void testSynchronized() throws Exception {
+		class C0{
+			private int i = 0;
+			public int getI(){
+				return i;
+			}
+			public void setI(int i){
+				try {
+					Thread.sleep(5000);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				System.out.println(i + " was set");
+				this.i = i;
+			}
+		}
+		class C1{
+			private C0 c0 = new C0();
+			private Object o = new Object();
+			public C0 getC0(){
+				synchronized (o) {
+					return c0;
+				}
+			}
+		}
+		
+		final C1 c1 = new C1();
+		
+		c1.getC0().setI(1);
+		Thread t = new Thread(new Runnable() {
+			
+			@Override
+			public void run() {
+				c1.getC0().setI(2);
+			}
+		});
+		t.start();
+		t.join();
+		System.out.println(c1.getC0().getI());
+		
 	}
 }

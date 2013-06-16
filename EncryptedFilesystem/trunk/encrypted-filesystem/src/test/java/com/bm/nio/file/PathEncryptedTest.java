@@ -486,7 +486,7 @@ public class PathEncryptedTest {
 	public void testZip() throws Exception {
 		//test basic toString function
 		URI u = URI.create("encrypted:jar:file:/1.zip!/");
-		Map<String, Object> env = new HashMap<String, Object>();
+		Map<String, Object> env = TestUtils.newEnv();
 		env.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CREATE_UNDERLYING_FILE_SYSTEM, true);
 		env.put("create", "true");
 		FileSystem fsEnc = FileSystems.newFileSystem(u, env);

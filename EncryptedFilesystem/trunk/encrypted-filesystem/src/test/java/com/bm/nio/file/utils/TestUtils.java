@@ -22,6 +22,13 @@ import com.bm.nio.file.FileSystemProviderEncrypted;
 public class TestUtils {
 	
 	public static final String SANDBOX_PATH = "./src/test/sandbox/";
+	public static final char[] DEFAULT_PASSWORD = "12345".toCharArray();
+	
+	public static HashMap<String, Object> newEnv(){
+		HashMap<String, Object> env = new HashMap<String, Object>();
+		env.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_PASSWORD, DEFAULT_PASSWORD);
+		return env;
+	}
 	
 	public static void deleteFilesystems(FileSystemProviderEncrypted provider) throws IOException {
 		for (FileSystemEncrypted fe : provider.getFileSystems()){
@@ -124,7 +131,7 @@ public class TestUtils {
 	public static FileSystem newTempFieSystem(FileSystemProviderEncrypted fpe, String path) throws IOException, URISyntaxException{
 		File file = TestUtils.newTempDir(path); 
 		URI uri1Encrypted = TestUtils.uriEncrypted(TestUtils.fileToURI(file));
-		return fpe.newFileSystem(uri1Encrypted, new HashMap<String, Object>());
+		return fpe.newFileSystem(uri1Encrypted, newEnv());
 	}
 
 }

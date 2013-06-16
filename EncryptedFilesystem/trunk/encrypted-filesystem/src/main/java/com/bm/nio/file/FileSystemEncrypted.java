@@ -66,7 +66,7 @@ public class FileSystemEncrypted extends FileSystem {
 	
 	private String configFile = "config.xml";
 	private Path configPath;
-	private ConfigEncrypted config = ConfigEncrypted.newConfig();
+	private ConfigEncrypted config = new ConfigEncrypted();//ConfigEncrypted.newConfig();
 	/**
 	 * @param provider
 	 * @param path - path of underlying filesystem, i.e. D:/enc1
@@ -167,7 +167,9 @@ public class FileSystemEncrypted extends FileSystem {
 						+ " cannot be overriden by "
 						+ FileSystemEncryptedEnvParams.ENV_CONFIG
 						+ " config parameter");
-			res = ConfigEncrypted.loadConfig(configPath);
+			//res = ConfigEncrypted.loadConfig(configPath);
+			res = new ConfigEncrypted();
+			res.loadConfig(configPath);
 		} else {
 			Files.createFile(configPath);
 			res.saveConfig(configPath);
