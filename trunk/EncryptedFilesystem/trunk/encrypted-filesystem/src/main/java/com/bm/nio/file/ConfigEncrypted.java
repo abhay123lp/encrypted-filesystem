@@ -1,10 +1,13 @@
 package com.bm.nio.file;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
+import java.nio.channels.Channels;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -25,6 +28,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.simpleframework.xml.Attribute;
 import org.simpleframework.xml.Element;
 import org.simpleframework.xml.Root;
+import org.simpleframework.xml.Version;
 import org.simpleframework.xml.core.ElementException;
 import org.simpleframework.xml.core.Persister;
 import org.simpleframework.xml.core.ValueRequiredException;
@@ -35,116 +39,149 @@ import org.simpleframework.xml.stream.Format;
  * @author Mike
  *
  */
+//either of 2 templates:
+//ConfigEncrypted: mutable, thread safe
 @Root(strict = true, name = "encryptionConfiguration")
 public class ConfigEncrypted {
 	
-	private Persister serializer = new Persister(new Format("<?xml version=\"1.0\" encoding= \"UTF-8\"?>"));
-	private ConfigEncrypted() {
+	private static Persister getSerializer(){
+		//alternatively can use threadlocal variables
+		return new Persister(new Format("<?xml version=\"1.0\" encoding= \"UTF-8\"?>"));
+	}
+	
+	public ConfigEncrypted() {
 	};
 	
-	/**
-	 * Creates default config
-	 * @param password
-	 * @return
-	 */
-	public static ConfigEncrypted newConfig() {
-		return new ConfigEncrypted();
-	}
-	
-//    public static final String PROPERTY_PLAIN_BLOCK_SIZE = "block.size";
-//    public static final String PROPERTY_PASSWORD = "password";
-//    public static final String PROPERTY_TRANSFORMATION = "transformation";
-//    //new
-//	public static final String PROPERTY_SALT = "salt";
-//	public static final String PROPERTY_KEY_STRENGTH = "keystrength";
-//	public static final String PROPERTY_ITERATION_COUNT = "iterationcount";
-//	public static final String PROPERTY_VERSION = "version";
-	
-	// properties
-
-	//DONE: consider nulling after generating cipher
-	//better replace with SecretKeySpec
-	//private SecretKeySpec key;
-
 	@Attribute
-	private String version = "1.0";//TODO: take from meta-inf
+	private volatile String version = "1.0";//TODO: take from meta-inf
 	@Element
-	private int blockSize = 8192;
+	private volatile int blockSize = 8192;
 	@Element
-	private String transformation = "AES/CFB/NoPadding";
+	private volatile String transformation = "AES/CFB/NoPadding";//"AES/CBC/PKCS5Padding";
 	@Element(required = false)
-	private String provider = null;
+	private volatile String provider = null;
 	@Element
-	private String salt = "12345678";
+	private volatile String salt = "12345678";
 	@Element
-	private int keyStrength = 128;
+	private volatile int keyStrength = 128;
 	@Element
-	private int iterationCount = 1024;
+	private volatile int iterationCount = 1024;
 	@Element
-	private boolean macNames = true;
+	private volatile boolean macNames = true;
 	@Element
-	private boolean macFiles = true;
+	private volatile boolean macFiles = true;
 	
-	public static ConfigEncrypted loadConfig(Path path) {
-		//TOTEST
+	private void loadConfigInternal(InputStream is) throws Exception {
+			getSerializer().read(this, is);
+	}
+	
+	public static ConfigEncrypted newConfig(ConfigEncrypted config) {
 		ConfigEncrypted res = new ConfigEncrypted();
-		//Properties p = new Properties();
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		Persister serializer = getSerializer();
+		try {
+			serializer.write(config, out);
+			serializer.read(res,
+					new ByteArrayInputStream(out.toByteArray()));
+		} catch (Exception e) {
+			final RuntimeException rte = new RuntimeException(
+					"Unable to copy values");
+			rte.initCause(e);
+			throw rte;
+		}
+		return res;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (super.equals(obj))
+			return true;
+		final Persister serializer = new Persister(new Format("<?xml version=\"1.0\" encoding= \"UTF-8\"?>"));
+		ByteArrayOutputStream b1 = new ByteArrayOutputStream();
+		ByteArrayOutputStream b2 = new ByteArrayOutputStream();
+		try {
+			serializer.write(this, b1);
+			serializer.write(obj, b2);
+		} catch (Exception e) {
+			return false;
+		}
+		String s1 = b1.toString();
+		String s2 = b2.toString();
+		return s1.equals(s2);
+	}
+	
+	
+	public void loadConfig(Path path) throws IOException {
 		try (InputStream is = Files.newInputStream(path, StandardOpenOption.READ);){
-//			p.load(is);
-//			return loadConfig(p);
 			try {
-				res.serializer.read(res, is);
+				loadConfig(is);
 			} catch (IOException e) {
 				throw e;
-			} catch (ValueRequiredException e) {
-				final RuntimeException rte = new RuntimeException(
-						"Required configuration parameter is missing. Unable to load from "
-								+ path);
-				rte.initCause(e);
-				throw rte;
 			} catch (Exception e) {
 				final RuntimeException rte = new RuntimeException(
-						"Unable to save encrypted configuration to " + path);
+						"Unable to load encrypted configuration from " + path);
 				rte.initCause(e);
 				throw rte;
 			}
-			return res;
+		}
+	}
+
+	public void loadConfig(InputStream is) throws IOException {
+		try {
+			loadConfigInternal(is);
 		} catch (IOException e) {
-			return res;
+			throw e;
+		} catch (ValueRequiredException e) {
+			final RuntimeException rte = new RuntimeException(
+					"Required configuration parameter is missing. Unable to load from input stream");
+			rte.initCause(e);
+			throw rte;
+		} catch (Exception e) {
+			final RuntimeException rte = new RuntimeException(
+					"Unable to load encrypted configuration from input stream");
+			rte.initCause(e);
+			throw rte;
 		}
 	}
 	
-//	public static ConfigEncrypted loadConfig(Properties properties){
-//		//TODO:
-//		return null;
-//	}
 	
-	public synchronized void saveConfig(Path path) throws IOException {
+	private void saveConfigInternal(OutputStream os) throws Exception {
+			getSerializer().write(this, os);
+	}
+	
+	public void saveConfig(OutputStream os) throws IOException {
 		//TOTEST
-		//Properties p = new Properties();
+		try {
+			saveConfigInternal(os);
+		} catch (IOException e) {
+			throw e;
+		} catch (ElementException e) {
+			final RuntimeException rte = new RuntimeException(
+					"Incorrect field value of configuration class. Unable to save encrypted configuration to output stream");
+			rte.initCause(e);
+			throw rte;
+		} catch (Exception e) {
+			final RuntimeException rte = new RuntimeException(
+					"Unable to save encrypted configuration to output stream");
+			rte.initCause(e);
+			throw rte;
+		}
+	}
+	public void saveConfig(Path path) throws IOException {
+		//TOTEST
 		try (OutputStream os = Files.newOutputStream(path, StandardOpenOption.WRITE);){
-			//saveConfig(p);
-			//p.store(os, null);
 			try {
-				serializer.write(this, os);
+				saveConfig(os);
 			} catch (IOException e) {
 				throw e;
-			} catch (ElementException e) {
-				final RuntimeException rte = new RuntimeException(
-						"Incorrect field value of configuration class. Unable to save encrypted configuration to "
-								+ path);
-				rte.initCause(e);
-				throw rte;
 			} catch (Exception e) {
 				final RuntimeException rte = new RuntimeException(
 						"Unable to save encrypted configuration to " + path);
 				rte.initCause(e);
 				throw rte;
 			}
-			return;
-		} catch (IOException e) {
-			return;
 		}
+		
 		
 	}
 	
@@ -187,27 +224,7 @@ public class ConfigEncrypted {
         decipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
     }
 	
-//	public synchronized void saveConfig(Properties properties){
-//		//TODO:
-//	}
-	
-	
-//	public Cipher newEnCipher(){
-//		//TODO:
-//		return null;
-//	}
-	public Cipher newDeCipher(){
-		//TODO:
-		return null;
-	}
-//	public Properties getProperties(){
-//		Properties res = new Properties();
-//		res.setProperty(PROPERTY_PLAIN_BLOCK_SIZE, "");
-//		//TODO:
-//		return null;
-//	}
-	//TODO:
-	private class Ciphers{
+	public static class Ciphers{
 		private Cipher encipher;
 		private Cipher decipher;
 		public Cipher getEncipher() {
@@ -217,4 +234,76 @@ public class ConfigEncrypted {
 			return decipher;
 		}
 	}
+
+	// === staff ===	
+
+	public String getVersion() {
+		return version;
+	}
+
+	public int getBlockSize() {
+		return blockSize;
+	}
+
+	public void setBlockSize(int blockSize) {
+		this.blockSize = blockSize;
+	}
+
+	public String getTransformation() {
+		return transformation;
+	}
+
+	public void setTransformation(String transformation) {
+		this.transformation = transformation;
+	}
+
+	public String getProvider() {
+		return provider;
+	}
+
+	public void setProvider(String provider) {
+		this.provider = provider;
+	}
+
+	public String getSalt() {
+		return salt;
+	}
+
+	public void setSalt(String salt) {
+		this.salt = salt;
+	}
+
+	public int getKeyStrength() {
+		return keyStrength;
+	}
+
+	public void setKeyStrength(int keyStrength) {
+		this.keyStrength = keyStrength;
+	}
+
+	public int getIterationCount() {
+		return iterationCount;
+	}
+
+	public void setIterationCount(int iterationCount) {
+		this.iterationCount = iterationCount;
+	}
+
+	public boolean isMacNames() {
+		return macNames;
+	}
+
+	public void setMacNames(boolean macNames) {
+		this.macNames = macNames;
+	}
+
+	public boolean isMacFiles() {
+		return macFiles;
+	}
+
+	public void setMacFiles(boolean macFiles) {
+		this.macFiles = macFiles;
+	}
+	
+	
 }
