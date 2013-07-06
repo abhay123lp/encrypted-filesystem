@@ -87,6 +87,28 @@ public class TestUtils {
 			file.delete();
 		}
 	}
+	
+	// ===
+	public static void deleteFolderContents(File folder) {
+		deleteFolderInternal(folder, true);
+	}
+	
+	private static void deleteFolderInternal(File folder, boolean isContentsOnly) {
+	    File[] files = folder.listFiles();
+	    if(files!=null) {
+	        for(File f: files) {
+	            if(f.isDirectory()) {
+	            	deleteFolderInternal(f, false);
+	            } else {
+	                f.delete();
+	            }
+	        }
+	    }
+	    if (!isContentsOnly)
+	    	folder.delete();
+	}
+	// ===
+	
 	public static File newTempDir(String path){
 		File dir = new File(path);
 		if (dir.exists())

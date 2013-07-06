@@ -2,24 +2,34 @@ package com.bm.nio.file;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileStore;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
+import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.WatchService;
+import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.UserPrincipalLookupService;
 import java.nio.file.spi.FileSystemProvider;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import javax.crypto.Cipher;
+
+import com.bm.nio.channels.SeekableByteChannelEncrypted;
+import com.bm.nio.utils.CipherUtils;
 
 
 /**
@@ -66,7 +76,9 @@ public class FileSystemEncrypted extends FileSystem {
 	
 	private String configFile = "config.xml";
 	private Path configPath;
-	private ConfigEncrypted config = new ConfigEncrypted();//ConfigEncrypted.newConfig();
+	private ConfigEncrypted config = new ConfigEncrypted();
+	//TODO: 14. consider taking PWD every time as a parameter
+	char [] pwd;
 	/**
 	 * @param provider
 	 * @param path - path of underlying filesystem, i.e. D:/enc1
@@ -123,7 +135,7 @@ public class FileSystemEncrypted extends FileSystem {
 		envConfFile = env.get(FileSystemEncryptedEnvParams.ENV_CONFIG_FILE);
 		envConf = env.get(FileSystemEncryptedEnvParams.ENV_CONFIG);
 		envPwd = env.get(FileSystemEncryptedEnvParams.ENV_PASSWORD);
-		char [] pwd;
+		final char [] pwd;
 		if (envPwd == null){
 			throw new IllegalArgumentException("Parameter " + FileSystemEncryptedEnvParams.ENV_PASSWORD + " must be present");
 		} else{
@@ -133,6 +145,7 @@ public class FileSystemEncrypted extends FileSystem {
 				pwd = (char []) envPwd;
 			}
 		}
+		this.pwd = pwd;
 		//
 //		if (envConfFile != null && envConf != null)
 //			throw new IllegalArgumentException(
@@ -212,6 +225,7 @@ public class FileSystemEncrypted extends FileSystem {
 			throw new IllegalArgumentException("path " + plainUnderPath + " does not belong filesystem path " + mRoot);
 		Path res = mRoot;
 		Path remainderPath;//path remainder inside FileSystem
+		final String separator = plainUnderPath.getFileSystem().getSeparator();
 		if (plainUnderPath.isAbsolute()){//Path(file:///D:/enc1/dir)
 			remainderPath = mRoot.relativize(plainUnderPath);//Path(file:///dir)
 			res = mRoot;
@@ -223,10 +237,18 @@ public class FileSystemEncrypted extends FileSystem {
 		// === encrypt ===
 		for (int i = 0; i < remainderPath.getNameCount(); i ++){
 			String currName = remainderPath.getName(i).toString();
+			// fix for filesystems that nclude delimiter in the filename (ZipFileSystem)
+			currName = currName.replace(separator, "");
 			// === ===
 			// fix for filesystems that can't resolve against empty path
+			// so first step is to avoid res.resolve below
 			if ((!plainUnderPath.isAbsolute()) && i == 0){
-				res = remainderPath.getName(i);
+				if (plainNames.contains(currName))
+					res = res.getFileSystem().getPath(currName);
+				else
+					res = res.getFileSystem().getPath(encryptName(currName));
+				
+//				res = remainderPath.getName(i);
 				continue;
 			}
 			// === ===
@@ -235,7 +257,7 @@ public class FileSystemEncrypted extends FileSystem {
 			if (plainNames.contains(currName))
 				res = res.resolve(currName);
 			else
-				res = res.resolve(encryptName(currName));
+				res = res.resolve(encryptName(currName));//CipherUtils.encryptName(currName, config.newCiphers(pwd).getEncipher()));
 		}
 		return res;
 	}
@@ -251,6 +273,7 @@ public class FileSystemEncrypted extends FileSystem {
 			throw new IllegalArgumentException("path " + encUnderPath + " does not belong filesystem path " + mRoot);
 		Path res;
 		Path remainderPath;
+		final String separator = encUnderPath.getFileSystem().getSeparator();
 		if (encUnderPath.isAbsolute()){//Path(file:///D:/enc1/F11A)
 			remainderPath = mRoot.relativize(encUnderPath);//Path(file:///F11A)
 			res = mRoot;
@@ -262,10 +285,17 @@ public class FileSystemEncrypted extends FileSystem {
 		// === decrypt ===
 		for (int i = 0; i < remainderPath.getNameCount(); i ++){
 			String currName = remainderPath.getName(i).toString();
+			// fix for filesystems that nclude delimiter in the filename (ZipFileSystem)
+			currName = currName.replace(separator, "");
 			// === ===
 			// fix for filesystems that can't resolve against empty path
+			// so first step is to avoid res.resolve below
 			if ((!encUnderPath.isAbsolute()) && i == 0){
-				res = remainderPath.getName(i);
+				if (plainNames.contains(currName))
+					res = res.getFileSystem().getPath(currName);
+				else
+					res = res.getFileSystem().getPath(decryptName(currName));
+//				res = remainderPath.getName(i);
 				continue;
 			}
 			// === ===
@@ -273,10 +303,40 @@ public class FileSystemEncrypted extends FileSystem {
 			if (plainNames.contains(currName))
 				res = res.resolve(currName);
 			else
-				res = res.resolve(decryptName(currName));
+				res = res.resolve(decryptName(currName));//CipherUtils.decryptName(currName, config.newCiphers(pwd).getDecipher()));
 		}
 		return res;
 	}
+	
+	private String encryptName(String plainName) throws GeneralSecurityException {
+		return CipherUtils.encryptName(plainName, config.newCiphers(pwd).getEncipher());
+	}
+	
+	private String decryptName(String encName) throws GeneralSecurityException {
+		return CipherUtils.decryptName(encName, config.newCiphers(pwd).getDecipher());
+	}
+
+
+	protected SeekableByteChannel newByteChannel(Path path,
+			Set<? extends OpenOption> options, FileAttribute<?>... attrs) throws IOException, GeneralSecurityException {
+		final Path underPath = ((PathEncrypted)path).getFullUnderPath();
+		
+		synchronized (this) {
+			final SeekableByteChannel uch = Files.newByteChannel(underPath, options);
+			SeekableByteChannelEncrypted ch = SeekableByteChannelEncrypted.getChannel(uch);
+			if (ch == null){
+				Map<String, Object> props = new HashMap<String, Object>();
+				//DONE: 5.5.6. Add password or cipher to parameters. 
+				props.put(FileSystemEncryptedEnvParams.ENV_CONFIG, config);
+				props.put(FileSystemEncryptedEnvParams.ENV_PASSWORD, this.pwd);
+				ch = SeekableByteChannelEncrypted.newChannel(uch, props);//DONE: pass config encrypted
+			}
+			if (options.contains(StandardOpenOption.APPEND))
+				ch.position(ch.size());
+			return ch;
+		}
+	}
+	
 	//returns root as PathEncrypted
 	/**
 	 * @return - encrypted root paths
@@ -331,19 +391,6 @@ public class FileSystemEncrypted extends FileSystem {
 		return toEncrypted(lPath);
 	}
 	
-	
-	protected String encryptName(String plainName) throws GeneralSecurityException {
-		//TODO:
-		// consider using MAC
-		//throw new IllegalArgumentException();
-		return plainName;
-	}
-	
-	protected String decryptName(String encName) throws GeneralSecurityException {
-		//TODO:
-		// consider using MAC
-		return encName;
-	}
 	
 	/**
 	 * Sets custom decoder, for example base64 to decode filenames and file contents

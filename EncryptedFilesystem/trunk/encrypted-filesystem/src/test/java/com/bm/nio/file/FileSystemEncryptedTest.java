@@ -42,6 +42,13 @@ import com.sun.xml.internal.messaging.saaj.util.ByteOutputStream;
 
 public class FileSystemEncryptedTest {
 
+	static{
+		//delete everything before starting tests
+		File f = new File(TestUtils.SANDBOX_PATH);
+		if (f.isDirectory())
+			TestUtils.deleteFolderContents(f);
+	}
+	
 	//@Test
 	public void encryptDecrypt(){
 		//FileSystemProviderEncrypted f = new FileSystemProviderEncrypted();
@@ -181,6 +188,7 @@ public class FileSystemEncryptedTest {
 				nestedException = true;
 			}
 			Assert.assertTrue(nestedException);//check error in case of duplication
+			TestUtils.delete(new File(TestUtils.SANDBOX_PATH + "/enc3/dir"));//housekeeping, otherwise it will throw DirectoryNotEmptyException when will be deleting filesystem
 			// === nested - high level filesystem not allowed ===
 			nestedException = false;
 			try {
@@ -194,12 +202,13 @@ public class FileSystemEncryptedTest {
 			// === === ===
 			
 			String encSubPath = TestUtils.SANDBOX_PATH + "/enc23/dir";
-			TestUtils.newTempDir(encSubPath);
+			File f = TestUtils.newTempDir(encSubPath);
 			FileSystem fs = fpe.getFileSystem(TestUtils.uriEncrypted(TestUtils.pathToURI(encSubPath)));
 			for (Path p : fs.getRootDirectories()){
 				Assert.assertTrue(p.toString().endsWith("enc23"));
 				//System.out.println(p);//D:\prog\workspace\encrypted-filesystem-trunk\src\test\sandbox\enc23
 			}
+			TestUtils.delete(f);//housekeeping, otherwise it will throw DirectoryNotEmptyException when will be deleting filesystem
 			//enc1.delete();
 			
 			// === closing - should not be exception ===
@@ -350,7 +359,7 @@ public class FileSystemEncryptedTest {
 		// i.e. EncryptedFilesystem with enc300/dir root, will leave enc300 after deletion 
 		File f = new File(TestUtils.SANDBOX_PATH);
 		if (f.isDirectory())
-			deleteFolderContents(f);
+			TestUtils.deleteFolderContents(f);
 //		
 //		//close filesystems
 //		FileSystemProviderEncrypted fpe = mFspe;
@@ -360,22 +369,4 @@ public class FileSystemEncryptedTest {
 
 	}
 	
-	public static void deleteFolderContents(File folder) {
-		deleteFolderInternal(folder, true);
-	}
-	
-	private static void deleteFolderInternal(File folder, boolean isContentsOnly) {
-	    File[] files = folder.listFiles();
-	    if(files!=null) {
-	        for(File f: files) {
-	            if(f.isDirectory()) {
-	            	deleteFolderInternal(f, false);
-	            } else {
-	                f.delete();
-	            }
-	        }
-	    }
-	    if (!isContentsOnly)
-	    	folder.delete();
-	}
 }

@@ -25,6 +25,11 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import com.bm.nio.file.ConfigEncrypted;
+import com.bm.nio.file.ConfigEncrypted.Ciphers;
+import com.bm.nio.file.FileSystemEncrypted.FileSystemEncryptedEnvParams;
+import com.bm.nio.utils.CipherUtils;
+
 /**
  * @author Mike
  * implementation based on underlying channel
@@ -38,17 +43,18 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 	// or allow multiple channels for 1 under channel
 	//================
 	
-    Cipher encipher;
-    Cipher decipher;
+    //Cipher encipher;
+    //Cipher decipher;
 
     //=== Cipher params ===
-    String transformation = "AES/CFB/NoPadding";//"AES/CBC/PKCS5Padding";
+    //String transformation = "AES/CFB/NoPadding";//"AES/CBC/PKCS5Padding";
     //String transformation = "AES/CBC/PKCS5Padding";
-    byte[] salt = new String("12345678").getBytes();
-    int iterationCount = 1024;
-    int keyStrength = 128;
-    SecretKey key;
-    byte[] iv;
+    //byte[] salt = new String("12345678").getBytes();
+    //int iterationCount = 1024;
+    //int keyStrength = 128;
+    //SecretKey key;
+    //byte[] iv;
+    
     //===
     protected byte block[];
     protected byte blockEnc[];
@@ -56,15 +62,20 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
     private final int encBlockSize;
     private long mDecPos = 0;
     private long mDecSize = 0;
-    public static class ConfigEncrypted{
-	    public static final String PROPERTY_PLAIN_BLOCK_SIZE = "block.size";
-	    public static final String PROPERTY_PASSWORD = "password";
-	    public static final String PROPERTY_TRANSFORMATION = "transformation";
-	    //new
-		public static final String PROPERTY_SALT = "salt";
-		public static final String PROPERTY_KEY_STRENGTH = "keystrength";
-		public static final String PROPERTY_ITERATION_COUNT = "iterationcount";
-    }
+//    public static class ConfigEncrypted{
+//	    public static final String PROPERTY_PLAIN_BLOCK_SIZE = "block.size";
+//	    public static final String PROPERTY_PASSWORD = "password";
+//	    public static final String PROPERTY_TRANSFORMATION = "transformation";
+//	    //new
+//		public static final String PROPERTY_SALT = "salt";
+//		public static final String PROPERTY_KEY_STRENGTH = "keystrength";
+//		public static final String PROPERTY_ITERATION_COUNT = "iterationcount";
+//    }
+    //===
+    Cipher encipher;
+    Cipher decipher;
+    private ConfigEncrypted mConfig;
+    //===
     
 	protected final SeekableByteChannel mChannel;
 	private final Object mLock;
@@ -76,25 +87,31 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 	public static synchronized SeekableByteChannelEncrypted newChannel(
 			SeekableByteChannel channel, Map<String, ?> props)
 			throws ChannelExistsException, GeneralSecurityException {
-		return newChannel(channel, props, null);
-	}
-
-	public static synchronized SeekableByteChannelEncrypted newChannel(
-			SeekableByteChannel channel)
-			throws ChannelExistsException, GeneralSecurityException {
-		return newChannel(channel, new HashMap<String, Object>(), null);
-	}
-
-	public static synchronized SeekableByteChannelEncrypted newChannel(
-			SeekableByteChannel channel, Map<String, ?> props, Cipher c)
-			throws ChannelExistsException, GeneralSecurityException {
+		//return newChannel(channel, props, null);
 		if (channels.get(channel) != null)
 			throw new ChannelExistsException();
-		final SeekableByteChannelEncrypted ce = new SeekableByteChannelEncrypted(channel, props, c);
+		final SeekableByteChannelEncrypted ce = new SeekableByteChannelEncrypted(channel, props);
 		channels.put(channel, ce);
 		return ce;
 	}
 
+	//DONE: remove this method
+//	public static synchronized SeekableByteChannelEncrypted newChannel(
+//			SeekableByteChannel channel)
+//			throws ChannelExistsException, GeneralSecurityException {
+//		return newChannel(channel, new HashMap<String, Object>());
+//	}
+
+//	public static synchronized SeekableByteChannelEncrypted newChannel(
+//			SeekableByteChannel channel, Map<String, ?> props, Cipher c)
+//			throws ChannelExistsException, GeneralSecurityException {
+//		if (channels.get(channel) != null)
+//			throw new ChannelExistsException();
+//		final SeekableByteChannelEncrypted ce = new SeekableByteChannelEncrypted(channel, props, c);
+//		channels.put(channel, ce);
+//		return ce;
+//	}
+//
 	public static synchronized SeekableByteChannelEncrypted getChannel(
 			SeekableByteChannel channel) {
 		return channels.get(channel);
@@ -105,25 +122,28 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 	}
 	// === ===
 	
-    protected SeekableByteChannelEncrypted(SeekableByteChannel channel) throws GeneralSecurityException {
-        this(channel, new HashMap<String, Object>());
-    }
+//    protected SeekableByteChannelEncrypted(SeekableByteChannel channel) throws GeneralSecurityException {
+//        this(channel, new HashMap<String, Object>());
+//    }
+//
 	
-    protected SeekableByteChannelEncrypted(SeekableByteChannel channel, Map<String, ?> props, Cipher c) throws GeneralSecurityException {
+    protected SeekableByteChannelEncrypted(SeekableByteChannel channel, Map<String, ?> props) throws GeneralSecurityException {
     	//TODO:
     	if (props == null)
     		props = new HashMap<String, Object>();
     	initProps(props);
-    	if (c == null)
-    		c = getDefaultCipher();
-        //this(channel, new HashMap<String, Object>());
-        encipher = Cipher.getInstance(c.getAlgorithm(), c.getProvider());
-        decipher = Cipher.getInstance(c.getAlgorithm(), c.getProvider());
-        iv = initEncipher(encipher, key);
-        initDecipher(decipher, key, iv);
+    	
+//    	if (c == null)
+//    		c = getDefaultCipher();
+//        //this(channel, new HashMap<String, Object>());
+//        encipher = Cipher.getInstance(c.getAlgorithm(), c.getProvider());
+//        decipher = Cipher.getInstance(c.getAlgorithm(), c.getProvider());
+//        iv = initEncipher(encipher, key);
+//        initDecipher(decipher, key, iv);
         
-        decBlockSize = props.containsKey(ConfigEncrypted.PROPERTY_PLAIN_BLOCK_SIZE) ?
-    			(Integer)props.get(ConfigEncrypted.PROPERTY_PLAIN_BLOCK_SIZE) : 8192; //encipher.getOutputSize(8192);
+        decBlockSize = mConfig.getBlockSize(); //encipher.getOutputSize(8192);
+//        decBlockSize = props.containsKey(ConfigEncrypted.PROPERTY_PLAIN_BLOCK_SIZE) ?
+//    			(Integer)props.get(ConfigEncrypted.PROPERTY_PLAIN_BLOCK_SIZE) : 8192; //encipher.getOutputSize(8192);
 	    if (decBlockSize <= 0) {
 	        throw new IllegalArgumentException("Block size <= 0");
 	    }
@@ -151,10 +171,10 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 
     }
     
-    public SeekableByteChannelEncrypted(SeekableByteChannel channel, Map<String, ?> props) throws GeneralSecurityException {
-		this(channel, props, null);
-	}
-	
+//    public SeekableByteChannelEncrypted(SeekableByteChannel channel, Map<String, ?> props) throws GeneralSecurityException {
+//		this(channel, props, null);
+//	}
+//	
 	public int getPlainDataBlockSize(){
 		return decBlockSize;
 	}
@@ -164,91 +184,139 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 	}
 	
     protected void initProps(Map<String, ?> props) throws GeneralSecurityException{
-    	//TODO: write correct initialization and parse properties
-        char [] pwd = props.containsKey(ConfigEncrypted.PROPERTY_PASSWORD) ?
-    			(char [] )props.get(ConfigEncrypted.PROPERTY_PASSWORD) : new char[3];
-    	transformation = props.containsKey(ConfigEncrypted.PROPERTY_TRANSFORMATION) ?
-    					 (String)props.get(ConfigEncrypted.PROPERTY_TRANSFORMATION) : transformation;
-    	//--- transform password to a key ---
-        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
-        KeySpec spec = new PBEKeySpec(pwd, salt, iterationCount, keyStrength);
-        SecretKey tmp = factory.generateSecret(spec);
-        key = new SecretKeySpec(tmp.getEncoded(), "AES");
-    }
-    
-    protected Cipher getDefaultCipher() throws GeneralSecurityException {
-        Cipher cipher = Cipher.getInstance(transformation);
-        return cipher;
-    }
-    
-
-    protected byte[] initEncipher(Cipher encipher, SecretKey key) throws GeneralSecurityException{
-        encipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(new byte[16]));
-        AlgorithmParameters params = encipher.getParameters();
-        return params.getParameterSpec(IvParameterSpec.class).getIV();
-    }
-    
-    protected void initDecipher(Cipher decipher, SecretKey key, byte [] iv) throws GeneralSecurityException{
-        decipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
-    }
-
-    byte [] encryptBlock(byte [] bufPlain) throws GeneralSecurityException {
-    	return encryptBlock(bufPlain, 0, bufPlain.length);
-    }
-    byte [] encryptBlock(byte [] bufPlain, int start, int len) throws GeneralSecurityException {
-    	try{
-	        byte [] tmp = new byte[len - start]; 
-	        System.arraycopy(bufPlain, start, tmp, 0, len); 
-	        xor(tmp);
-	        tmp = encipher.doFinal(tmp);
-	        flip(tmp);
-	        xor(tmp);
-	        tmp = encipher.doFinal(tmp);
-	        return tmp;
-    	} catch (GeneralSecurityException e){
-    		initEncipher(encipher, key);
-    		throw e;
-    	}
-    }
-    
-    static void flip(byte [] a){
-    	for (int i = 0, j = a.length - 1; i < a.length/2; i ++, j --){
-    		byte tmp = a[i];
-    		a[i] = a[j];
-    		a[j] = tmp;
-    	}
-    }
-
-    static void xor(byte [] a){
-    	for(int i = 0; i < a.length - 1; i++)
-    		a[i + 1] ^= a[i];
-    }
-
-    static void unxor(byte [] a){
-    	for(int i = a.length - 1; i > 0; --i)
-    		a[i] ^= a[i-1];
-    }
-
-    byte [] decryptBlock(byte [] bufEnc) throws GeneralSecurityException {
-    	return decryptBlock(bufEnc, 0, bufEnc.length);
-    }
-    byte [] decryptBlock(byte [] bufEnc, int start, int len) throws GeneralSecurityException {
-    	try {
-            //return decipher.doFinal(bufEnc, start, len);
-	        byte [] tmp = new byte[len - start]; 
-	        System.arraycopy(bufEnc, start, tmp, 0, len); 
-	        tmp = decipher.doFinal(tmp);
-	        unxor(tmp);
-	        flip(tmp);
-	        tmp = decipher.doFinal(tmp);
-	        unxor(tmp);
-	        return tmp;
-    		
-		} catch (GeneralSecurityException e) {
-			initDecipher(decipher, key, iv);
-			throw e;
+    	final Object envConfig, envPwd;
+    	envConfig = props.get(FileSystemEncryptedEnvParams.ENV_CONFIG);
+		envPwd = props.get(FileSystemEncryptedEnvParams.ENV_PASSWORD);
+		final char [] pwd;
+		if (envPwd == null){
+			throw new IllegalArgumentException("Parameter " + FileSystemEncryptedEnvParams.ENV_PASSWORD + " must be present");
+		} else{
+			if (!(envPwd instanceof char [])){
+				throw new IllegalArgumentException("Parameter " + FileSystemEncryptedEnvParams.ENV_PASSWORD + " must be type of " + (new char [0]).getClass().getSimpleName());
+			} else{
+				pwd = (char []) envPwd;
+			}
 		}
+    	
+    	if (envConfig != null)
+    		mConfig = ConfigEncrypted.newConfig((ConfigEncrypted)envConfig);
+    	else
+    		mConfig = new ConfigEncrypted();
+    	
+    	final Ciphers c = mConfig.newCiphers(pwd);
+    	encipher = c.getEncipher();
+    	decipher = c.getDecipher();
+//    			//
+////    			if (envConfFile != null && envConf != null)
+////    				throw new IllegalArgumentException(
+////    						"Should be present only one parameter of: "
+////    								+ FileSystemEncryptedEnvParams.ENV_CONFIG_FILE
+////    								+ ", " + FileSystemEncryptedEnvParams.ENV_CONFIG);
+//    			if (envConf != null)
+//    				res = (ConfigEncrypted)envConf;
+//    			
+//    			
+//    	//TODO: write correct initialization and parse properties
+//        char [] pwd = props.containsKey(ConfigEncrypted.PROPERTY_PASSWORD) ?
+//    			(char [] )props.get(ConfigEncrypted.PROPERTY_PASSWORD) : new char[3];
+//    	transformation = props.containsKey(ConfigEncrypted.PROPERTY_TRANSFORMATION) ?
+//    					 (String)props.get(ConfigEncrypted.PROPERTY_TRANSFORMATION) : transformation;
+//    	//--- transform password to a key ---
+//        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
+//        KeySpec spec = new PBEKeySpec(pwd, salt, iterationCount, keyStrength);
+//        SecretKey tmp = factory.generateSecret(spec);
+//        key = new SecretKeySpec(tmp.getEncoded(), "AES");
     }
+    
+//    protected Cipher getDefaultCipher() throws GeneralSecurityException {
+//        Cipher cipher = Cipher.getInstance(transformation);
+//        return cipher;
+//    }
+//    
+
+//    protected byte[] initEncipher(Cipher encipher, SecretKey key) throws GeneralSecurityException{
+//        encipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(new byte[16]));
+//        AlgorithmParameters params = encipher.getParameters();
+//        return params.getParameterSpec(IvParameterSpec.class).getIV();
+//    }
+//    
+//    protected void initDecipher(Cipher decipher, SecretKey key, byte [] iv) throws GeneralSecurityException{
+//        decipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
+//    }
+//
+
+//    static byte [] encryptBlock(Cipher encipher, byte [] bufPlain) throws GeneralSecurityException {
+//    	return encryptBlock(encipher, bufPlain, 0, bufPlain.length);
+//    }
+//    static byte [] encryptBlock(Cipher encipher, byte [] bufPlain, int start, int len) throws GeneralSecurityException {
+//        byte [] tmp = new byte[len - start]; 
+//        System.arraycopy(bufPlain, start, tmp, 0, len); 
+//        xor(tmp);
+//        tmp = encipher.doFinal(tmp);
+//        flip(tmp);
+//        xor(tmp);
+//        tmp = encipher.doFinal(tmp);
+//        return tmp;
+////    	try{
+////	        byte [] tmp = new byte[len - start]; 
+////	        System.arraycopy(bufPlain, start, tmp, 0, len); 
+////	        xor(tmp);
+////	        tmp = encipher.doFinal(tmp);
+////	        flip(tmp);
+////	        xor(tmp);
+////	        tmp = encipher.doFinal(tmp);
+////	        return tmp;
+////    	} catch (GeneralSecurityException e){
+////    		initEncipher(encipher, key);
+////    		throw e;
+////    	}
+//    }
+    
+//    static void flip(byte [] a){
+//    	for (int i = 0, j = a.length - 1; i < a.length/2; i ++, j --){
+//    		byte tmp = a[i];
+//    		a[i] = a[j];
+//    		a[j] = tmp;
+//    	}
+//    }
+//
+//    static void xor(byte [] a){
+//    	for(int i = 0; i < a.length - 1; i++)
+//    		a[i + 1] ^= a[i];
+//    }
+//
+//    static void unxor(byte [] a){
+//    	for(int i = a.length - 1; i > 0; --i)
+//    		a[i] ^= a[i-1];
+//    }
+//
+//    static byte [] decryptBlock(Cipher decipher, byte [] bufEnc) throws GeneralSecurityException {
+//    	return decryptBlock(decipher, bufEnc, 0, bufEnc.length);
+//    }
+//    static byte [] decryptBlock(Cipher decipher, byte [] bufEnc, int start, int len) throws GeneralSecurityException {
+//        byte [] tmp = new byte[len - start]; 
+//        System.arraycopy(bufEnc, start, tmp, 0, len); 
+//        tmp = decipher.doFinal(tmp);
+//        unxor(tmp);
+//        flip(tmp);
+//        tmp = decipher.doFinal(tmp);
+//        unxor(tmp);
+//        return tmp;
+////    	try {
+////	        byte [] tmp = new byte[len - start]; 
+////	        System.arraycopy(bufEnc, start, tmp, 0, len); 
+////	        tmp = decipher.doFinal(tmp);
+////	        unxor(tmp);
+////	        flip(tmp);
+////	        tmp = decipher.doFinal(tmp);
+////	        unxor(tmp);
+////	        return tmp;
+////    		
+////		} catch (GeneralSecurityException e) {
+////			initDecipher(decipher, key, iv);
+////			throw e;
+////		}
+//    }
     
     /**
      * Should be overridden together with encrypt/decrypt block
@@ -323,7 +391,8 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			mChannel.position(lastBlockStart);
 			mChannel.read(ByteBuffer.wrap(remainderArray));
 			mChannel.position(posTmp);
-			byte [] lastBlockDec = decryptBlock(remainderArray);
+			//byte [] lastBlockDec = decryptBlock(remainderArray);
+			byte [] lastBlockDec = CipherUtils.decryptBlock(decipher, remainderArray);
 			sizeDec += (long)lastBlockDec.length;
 			return sizeDec;
 		}
@@ -478,7 +547,9 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			if (readOverall <= 0)
 				return 0;
 
-			byte [] dec = decryptBlock(blockEnc, 0, readOverall);
+			//byte [] dec = decryptBlock(blockEnc, 0, readOverall);
+			byte [] dec = CipherUtils.decryptBlock(decipher, blockEnc, 0, readOverall);
+			
 			System.arraycopy(dec, 0, block, 0, dec.length);
 //			byte [] dec = decryptBlock(blockEnc, 0, lenEnc);
 //			System.arraycopy(dec, 0, block, 0, dec.length);
@@ -567,7 +638,8 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 					return -1;
 				// write from the current position
 			}
-			byte [] enc = encryptBlock(block, 0, len);
+			//byte [] enc = encryptBlock(block, 0, len);
+			byte [] enc = CipherUtils.encryptBlock(encipher, block, 0, len);
 			len = enc.length;
 			ByteBuffer buf = ByteBuffer.wrap(enc);
 			while (buf.remaining() > 0) {

@@ -53,6 +53,7 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	
 	//A correspondence between encrypted folder root of underlying filesystem and
 	//encrypted filesystem object
+	private Object lock = new Object();
 	private final TreeMap<Path, FileSystemEncrypted> filesystems = new TreeMap<Path, FileSystemEncrypted>(new ComparatorPath());
 	@Override
 	public String getScheme() {
@@ -106,27 +107,10 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 			throws IOException {
 		if (!(path instanceof PathEncrypted))
 			throw new ProviderMismatchException();
-		//TODO: consider resolving underpath against parent, instead of taking directly
-		//otherwise it will be resolved incorrectly for relative paths
 		try {
-			//final Path underPath = ((PathEncrypted)path).getUnderPath();
-			final Path underPath = ((PathEncrypted)path).getFullUnderPath();//((PathEncrypted)path.toAbsolutePath().normalize()).getUnderPath();
-			//final Path underPath = ((PathEncrypted)path.toAbsolutePath().normalize()).getUnderPath();
-			//final Path underPath = ((PathEncrypted)path.toRealPath()).getUnderPath();
-			
-			
-			//underPath.getFileSystem().provider().checkAccess(underPath, AccessMode.READ);
-			//Files.isReadable(underPath);
-			//Files.isWritable(underPath);
-			//SeekableByteChannelEncrypted ch = new SeekableByteChannelEncrypted(Files.newByteChannel(underPath, options));
-			synchronized (this) {
-				final SeekableByteChannel uch = Files.newByteChannel(underPath, options);
-				SeekableByteChannelEncrypted ch = SeekableByteChannelEncrypted.getChannel(uch);
-				if (ch == null)
-					ch = SeekableByteChannelEncrypted.newChannel(uch);
-				if (options.contains(StandardOpenOption.APPEND))
-					ch.position(ch.size());
-				return ch;
+			synchronized (lock) {
+				//corresponding fileSystemEncrypted should have encrypted configuration to open channel
+				return ((PathEncrypted)path).getFileSystem().newByteChannel(path, options, attrs);
 			}
 		} catch (GeneralSecurityException e) {
 			throw new IOException(e);
