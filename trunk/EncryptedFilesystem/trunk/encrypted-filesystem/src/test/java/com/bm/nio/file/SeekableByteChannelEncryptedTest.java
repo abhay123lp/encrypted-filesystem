@@ -33,6 +33,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import com.bm.nio.channels.SeekableByteChannelEncrypted;
+import com.bm.nio.file.FileSystemEncrypted.FileSystemEncryptedEnvParams;
 import com.bm.nio.file.channel.SeekableByteChannelTestFixed;
 import com.bm.nio.file.channel.SeekableByteChannelTestList;
 import com.bm.nio.file.channel.SeekableByteChannelTestListUnsupported;
@@ -54,9 +55,14 @@ public class SeekableByteChannelEncryptedTest {
 	private synchronized SeekableByteChannelEncrypted getSeekableByteChannelEncrypted(
 			SeekableByteChannel underChannel, String transformation, Integer blockSize) throws Exception {
 		HashMap<String, Object> props = new HashMap<String, Object>();
-		props.put(SeekableByteChannelEncrypted.ConfigEncrypted.PROPERTY_PLAIN_BLOCK_SIZE, blockSize);
-		props.put(SeekableByteChannelEncrypted.ConfigEncrypted.PROPERTY_TRANSFORMATION, transformation);
+//		props.put(SeekableByteChannelEncrypted.ConfigEncrypted.PROPERTY_PLAIN_BLOCK_SIZE, blockSize);
+//		props.put(SeekableByteChannelEncrypted.ConfigEncrypted.PROPERTY_TRANSFORMATION, transformation);
 		//return new SeekableByteChannelEncrypted(underChannel, props);
+		final ConfigEncrypted config = new ConfigEncrypted();
+		config.setTransformation(transformation);
+		config.setBlockSize(blockSize);
+		props.put(FileSystemEncryptedEnvParams.ENV_CONFIG, config);
+		props.put(FileSystemEncryptedEnvParams.ENV_PASSWORD, new char[3]);
 		SeekableByteChannelEncrypted ce = SeekableByteChannelEncrypted.getChannel(underChannel);
 		if (ce != null && ce.isOpen())
 			ce.close();//beware, that underlying channel may change it's state here
@@ -136,11 +142,14 @@ public class SeekableByteChannelEncryptedTest {
 			ce = getSeekableByteChannelEncrypted(underChannel, transformation, 8);
 			ce.write(ByteBuffer.wrap(txt.getBytes()));
 			ce.position(11);//correcting 5 to 4
+			
+//			[105, 106, 99, 99, 101, 102, 103, 104]
+//			[57, -25, -115, -69, -91, 59, 84, 124, 26, 59, -115, -54, 13, 87, 22, -50, 60, -123, 0, -60, -67, 95, 96, 6, 28, 30, -10, 35, -19, 109, 118, -67]			
 			ce.write(ByteBuffer.wrap("d".getBytes()));
 			//ce.close();
 			//ce.flush();
 			ce.position(0);
-			byte [] b = new byte [100];
+			byte [] b = new byte [100];//[49, 50, 51, 52, 53, 54, 55, 56, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 			int len = ce.read(ByteBuffer.wrap(b));
 			Assert.assertEquals(txtNew, new String(b, 0, len));
 			

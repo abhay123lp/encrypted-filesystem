@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
 import java.nio.file.ClosedWatchServiceException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -33,6 +34,13 @@ import com.bm.nio.file.utils.TestUtils;
 
 public class PathEncryptedTest {
 
+	static{
+		//delete everything before starting tests
+		File f = new File(TestUtils.SANDBOX_PATH);
+		if (f.isDirectory())
+			TestUtils.deleteFolderContents(f);
+	}
+	
 	private final FileSystemProviderEncrypted mFspe = TestUtils.getEncryptedProvider();
 	private String basePath = TestUtils.SANDBOX_PATH + "/enc1";
 	private final FileSystem fs;
@@ -91,11 +99,11 @@ public class PathEncryptedTest {
 	public void testNamesIterator() throws Exception {
 		//String basePath = TestUtils.SANDBOX_PATH + "/enc1";
 		//FileSystem fs = TestUtils.newTempFieSystem(mFspe, basePath);
-		Path p = fs.getPath("dir", "dir1");
+		Path p = fs.getPath("dir", "dir1", "DIR2");
 		//=== ===
-		List<String> namesExpect = Arrays.asList(new String[]{"dir", "dir1"});
+		List<String> namesExpect = Arrays.asList(new String[]{"dir", "dir1", "DIR2"});
 		Iterator<Path> iterator = p.iterator();
-		Assert.assertEquals(p.getNameCount(), 2);
+		Assert.assertEquals(p.getNameCount(), namesExpect.size());
 		for (int i = 0; i < namesExpect.size() || i < p.getNameCount() || iterator.hasNext(); i ++){
 			Assert.assertEquals(namesExpect.get(i), p.getName(i).toString());
 			Assert.assertEquals(namesExpect.get(i), iterator.next().toString());
@@ -494,8 +502,12 @@ public class PathEncryptedTest {
 		Path d1 = Files.createDirectories(dirs);
 		Assert.assertEquals(d1.toString(), "/./dir2/dir3");
 		//
+		
 		Path p1 = fs.getPath(".", "dir2", "dir3");
+		Path up = ((PathEncrypted)dirs).getUnderPath();
 		Assert.assertFalse(d1.equals(p1));
+		//TODO: zip filesystem does not deletes correctly, FIX that
+		
 //		FileSystems.newFileSystem(URI.create("jar:file:/1.zip!/"), Collections.EMPTY_MAP);
 //		Path p = Paths.get(URI.create("jar:file:/1.zip!/1"));
 //		Files.createFile(p);

@@ -77,7 +77,8 @@ public class Test {
 //		System.out.println(encipher.getProvider().getInfo());
 //		System.out.println(encipher.getProvider().getName());
 		
-		new Test().testSynchronized();
+		//new Test().testSynchronized();
+		System.out.println(new String(new byte [] {50, 49, 69, 69, 70, 50, 69, 66, 47, 50, 48, 69, 70, 70, 51, 69, 65, 47}));
 	}
 	
 	public void testStartsForZip() throws Exception{
