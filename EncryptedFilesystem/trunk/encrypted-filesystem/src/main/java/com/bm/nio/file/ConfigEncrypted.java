@@ -5,18 +5,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Target;
-import java.nio.channels.Channels;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.AlgorithmParameters;
 import java.security.GeneralSecurityException;
-import java.security.NoSuchAlgorithmException;
 import java.security.spec.KeySpec;
-import java.util.Properties;
-import java.util.concurrent.locks.ReentrantLock;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -28,7 +22,6 @@ import javax.crypto.spec.SecretKeySpec;
 import org.simpleframework.xml.Attribute;
 import org.simpleframework.xml.Element;
 import org.simpleframework.xml.Root;
-import org.simpleframework.xml.Version;
 import org.simpleframework.xml.core.ElementException;
 import org.simpleframework.xml.core.Persister;
 import org.simpleframework.xml.core.ValueRequiredException;
@@ -39,7 +32,6 @@ import org.simpleframework.xml.stream.Format;
  * @author Mike
  *
  */
-//either of 2 templates:
 //ConfigEncrypted: mutable, thread safe
 @Root(strict = true, name = "encryptionConfiguration")
 public class ConfigEncrypted {
@@ -96,20 +88,32 @@ public class ConfigEncrypted {
 	public boolean equals(Object obj) {
 		if (super.equals(obj))
 			return true;
-		final Persister serializer = new Persister(new Format("<?xml version=\"1.0\" encoding= \"UTF-8\"?>"));
-		ByteArrayOutputStream b1 = new ByteArrayOutputStream();
-		ByteArrayOutputStream b2 = new ByteArrayOutputStream();
+		final Persister serializer = getSerializer();
+		final ByteArrayOutputStream b1 = new ByteArrayOutputStream();
+		final ByteArrayOutputStream b2 = new ByteArrayOutputStream();
 		try {
 			serializer.write(this, b1);
 			serializer.write(obj, b2);
 		} catch (Exception e) {
 			return false;
 		}
-		String s1 = b1.toString();
-		String s2 = b2.toString();
+		final String s1 = b1.toString();
+		final String s2 = b2.toString();
 		return s1.equals(s2);
 	}
 	
+	@Override
+	public int hashCode() {
+		final Persister serializer = getSerializer();
+		final ByteArrayOutputStream b1 = new ByteArrayOutputStream();
+		try {
+			serializer.write(this, b1);
+		} catch (Exception e) {
+			return 0;
+		}
+		final String s1 = b1.toString();
+		return s1.hashCode();
+	}
 	
 	public void loadConfig(Path path) throws IOException {
 		try (InputStream is = Files.newInputStream(path, StandardOpenOption.READ);){
@@ -150,7 +154,6 @@ public class ConfigEncrypted {
 	}
 	
 	public void saveConfig(OutputStream os) throws IOException {
-		//TOTEST
 		try {
 			saveConfigInternal(os);
 		} catch (IOException e) {
@@ -168,7 +171,6 @@ public class ConfigEncrypted {
 		}
 	}
 	public void saveConfig(Path path) throws IOException {
-		//TOTEST
 		try (OutputStream os = Files.newOutputStream(path, StandardOpenOption.WRITE);){
 			try {
 				saveConfig(os);
@@ -304,6 +306,4 @@ public class ConfigEncrypted {
 	public void setMacFiles(boolean macFiles) {
 		this.macFiles = macFiles;
 	}
-	
-	
 }

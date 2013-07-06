@@ -31,12 +31,24 @@ public class ConfigEncryptedTest {
 		ce.setKeyStrength(ce.getKeyStrength() + 1);
 		ce.setMacFiles(!ce.isMacFiles());
 		ce.setMacNames(!ce.isMacNames());
-		//ce.setProvider(ce.getProvider() + 1);//provider is not required
+		//ce.setProvider(ce.getProvider() + 1);//provider is not required field
 		ce.setTransformation(ce.getTransformation() + 1);
 		ce.loadConfig(configPath);
 		Assert.assertEquals(ceTemplate, ce);
 		ce.setProvider(ce.getProvider() + 1);
 		Assert.assertNotSame(ceTemplate, ce);
+	}
+	
+	@Test
+	public void testEqualsHashCode(){
+		ConfigEncrypted ce = new ConfigEncrypted();
+		ConfigEncrypted ceTemplate = ConfigEncrypted.newConfig(ce);
+		ce.setBlockSize(1);
+		ce.setProvider("p");
+		ceTemplate.setBlockSize(1);
+		ceTemplate.setProvider("p");
+		Assert.assertEquals(ce, ceTemplate);
+		Assert.assertEquals(ce.hashCode(), ceTemplate.hashCode());
 	}
 	
 	@After
