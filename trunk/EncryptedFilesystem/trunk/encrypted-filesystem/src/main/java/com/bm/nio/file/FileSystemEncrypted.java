@@ -90,24 +90,7 @@ public class FileSystemEncrypted extends FileSystem {
 			}
 		}
 		
-		//TODO: create common functions to encryps/decrypt file by password (store cipher in FileSystemEncrypted)
-		//read encrypted properties from file
-//		o = env.get(FileSystemEncryptedEnvParams.ENV_CONFIG_FILE);
-//		o1 = env.get(FileSystemEncryptedEnvParams.ENV_CONFIG);
-//		if (o != null && o1 != null)
-//			throw new IllegalArgumentException(
-//					"Should be present only one parameter of: "
-//							+ FileSystemEncryptedEnvParams.ENV_CONFIG_FILE
-//							+ ", " + FileSystemEncryptedEnvParams.ENV_CONFIG);
-//		if (o1 != null)
-//			config = (ConfigEncrypted)o1;
-//		if (o != null)
-//			configFile = o.toString();
-//		configPath = path.resolve(configFile);
-//		if (!Files.exists(configPath)){
-//			Files.createFile(configPath);
-//			config.saveConfig(configPath);
-//		}
+		//DONE: create common functions to encryps/decrypt file by password (store cipher in FileSystemEncrypted)
     	mRoot = path.toAbsolutePath();
     	mProvider = provider;
 		config = loadConfig(mRoot, env);
