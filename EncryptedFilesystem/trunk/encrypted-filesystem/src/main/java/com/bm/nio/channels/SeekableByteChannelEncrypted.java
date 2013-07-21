@@ -43,18 +43,6 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 	// or allow multiple channels for 1 under channel
 	//================
 	
-    //Cipher encipher;
-    //Cipher decipher;
-
-    //=== Cipher params ===
-    //String transformation = "AES/CFB/NoPadding";//"AES/CBC/PKCS5Padding";
-    //String transformation = "AES/CBC/PKCS5Padding";
-    //byte[] salt = new String("12345678").getBytes();
-    //int iterationCount = 1024;
-    //int keyStrength = 128;
-    //SecretKey key;
-    //byte[] iv;
-    
     //===
     protected byte block[];
     protected byte blockEnc[];
@@ -62,15 +50,6 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
     private final int encBlockSize;
     private long mDecPos = 0;
     private long mDecSize = 0;
-//    public static class ConfigEncrypted{
-//	    public static final String PROPERTY_PLAIN_BLOCK_SIZE = "block.size";
-//	    public static final String PROPERTY_PASSWORD = "password";
-//	    public static final String PROPERTY_TRANSFORMATION = "transformation";
-//	    //new
-//		public static final String PROPERTY_SALT = "salt";
-//		public static final String PROPERTY_KEY_STRENGTH = "keystrength";
-//		public static final String PROPERTY_ITERATION_COUNT = "iterationcount";
-//    }
     //===
     Cipher encipher;
     Cipher decipher;
@@ -95,23 +74,6 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 		return ce;
 	}
 
-	//DONE: remove this method
-//	public static synchronized SeekableByteChannelEncrypted newChannel(
-//			SeekableByteChannel channel)
-//			throws ChannelExistsException, GeneralSecurityException {
-//		return newChannel(channel, new HashMap<String, Object>());
-//	}
-
-//	public static synchronized SeekableByteChannelEncrypted newChannel(
-//			SeekableByteChannel channel, Map<String, ?> props, Cipher c)
-//			throws ChannelExistsException, GeneralSecurityException {
-//		if (channels.get(channel) != null)
-//			throw new ChannelExistsException();
-//		final SeekableByteChannelEncrypted ce = new SeekableByteChannelEncrypted(channel, props, c);
-//		channels.put(channel, ce);
-//		return ce;
-//	}
-//
 	public static synchronized SeekableByteChannelEncrypted getChannel(
 			SeekableByteChannel channel) {
 		return channels.get(channel);
@@ -122,25 +84,11 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 	}
 	// === ===
 	
-//    protected SeekableByteChannelEncrypted(SeekableByteChannel channel) throws GeneralSecurityException {
-//        this(channel, new HashMap<String, Object>());
-//    }
-//
 	
     protected SeekableByteChannelEncrypted(SeekableByteChannel channel, Map<String, ?> props) throws GeneralSecurityException {
-    	//TODO:
     	if (props == null)
     		props = new HashMap<String, Object>();
     	initProps(props);
-    	
-//    	if (c == null)
-//    		c = getDefaultCipher();
-//        //this(channel, new HashMap<String, Object>());
-//        encipher = Cipher.getInstance(c.getAlgorithm(), c.getProvider());
-//        decipher = Cipher.getInstance(c.getAlgorithm(), c.getProvider());
-//        iv = initEncipher(encipher, key);
-//        initDecipher(decipher, key, iv);
-        
         decBlockSize = mConfig.getBlockSize(); //encipher.getOutputSize(8192);
 //        decBlockSize = props.containsKey(ConfigEncrypted.PROPERTY_PLAIN_BLOCK_SIZE) ?
 //    			(Integer)props.get(ConfigEncrypted.PROPERTY_PLAIN_BLOCK_SIZE) : 8192; //encipher.getOutputSize(8192);
@@ -148,7 +96,8 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 	        throw new IllegalArgumentException("Block size <= 0");
 	    }
 
-        encBlockSize = getEncAmt(decBlockSize);
+        //encBlockSize = getEncAmt(decBlockSize);
+	    encBlockSize = CipherUtils.getEncAmt(encipher, decBlockSize);
 	    block = new byte [decBlockSize];
 	    blockEnc = new byte [encBlockSize];
 		mChannel = channel;
@@ -163,18 +112,9 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 		}
 		//
 		mIsOpen = true;
-//		try {
-//			mDecSize = getDecSize();
-//		} catch (IOException e) {
-//			mDecSize = 0;
-//		}
 
     }
     
-//    public SeekableByteChannelEncrypted(SeekableByteChannel channel, Map<String, ?> props) throws GeneralSecurityException {
-//		this(channel, props, null);
-//	}
-//	
 	public int getPlainDataBlockSize(){
 		return decBlockSize;
 	}
@@ -206,128 +146,18 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
     	final Ciphers c = mConfig.newCiphers(pwd);
     	encipher = c.getEncipher();
     	decipher = c.getDecipher();
-//    			//
-////    			if (envConfFile != null && envConf != null)
-////    				throw new IllegalArgumentException(
-////    						"Should be present only one parameter of: "
-////    								+ FileSystemEncryptedEnvParams.ENV_CONFIG_FILE
-////    								+ ", " + FileSystemEncryptedEnvParams.ENV_CONFIG);
-//    			if (envConf != null)
-//    				res = (ConfigEncrypted)envConf;
-//    			
-//    			
-//    	//TODO: write correct initialization and parse properties
-//        char [] pwd = props.containsKey(ConfigEncrypted.PROPERTY_PASSWORD) ?
-//    			(char [] )props.get(ConfigEncrypted.PROPERTY_PASSWORD) : new char[3];
-//    	transformation = props.containsKey(ConfigEncrypted.PROPERTY_TRANSFORMATION) ?
-//    					 (String)props.get(ConfigEncrypted.PROPERTY_TRANSFORMATION) : transformation;
-//    	//--- transform password to a key ---
-//        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
-//        KeySpec spec = new PBEKeySpec(pwd, salt, iterationCount, keyStrength);
-//        SecretKey tmp = factory.generateSecret(spec);
-//        key = new SecretKeySpec(tmp.getEncoded(), "AES");
     }
     
-//    protected Cipher getDefaultCipher() throws GeneralSecurityException {
-//        Cipher cipher = Cipher.getInstance(transformation);
-//        return cipher;
+//    /**
+//     * Should be overridden together with encrypt/decrypt block
+//     * to return correct encrypted size
+//     * Reverse function getEncAmt(int encSize) cannot be made because of padding in encrypted data
+//     * @param decAmt
+//     * @return
+//     */
+//    protected int getEncAmt(int decAmt){
+//        return encipher.getOutputSize(encipher.getOutputSize(decAmt));
 //    }
-//    
-
-//    protected byte[] initEncipher(Cipher encipher, SecretKey key) throws GeneralSecurityException{
-//        encipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(new byte[16]));
-//        AlgorithmParameters params = encipher.getParameters();
-//        return params.getParameterSpec(IvParameterSpec.class).getIV();
-//    }
-//    
-//    protected void initDecipher(Cipher decipher, SecretKey key, byte [] iv) throws GeneralSecurityException{
-//        decipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
-//    }
-//
-
-//    static byte [] encryptBlock(Cipher encipher, byte [] bufPlain) throws GeneralSecurityException {
-//    	return encryptBlock(encipher, bufPlain, 0, bufPlain.length);
-//    }
-//    static byte [] encryptBlock(Cipher encipher, byte [] bufPlain, int start, int len) throws GeneralSecurityException {
-//        byte [] tmp = new byte[len - start]; 
-//        System.arraycopy(bufPlain, start, tmp, 0, len); 
-//        xor(tmp);
-//        tmp = encipher.doFinal(tmp);
-//        flip(tmp);
-//        xor(tmp);
-//        tmp = encipher.doFinal(tmp);
-//        return tmp;
-////    	try{
-////	        byte [] tmp = new byte[len - start]; 
-////	        System.arraycopy(bufPlain, start, tmp, 0, len); 
-////	        xor(tmp);
-////	        tmp = encipher.doFinal(tmp);
-////	        flip(tmp);
-////	        xor(tmp);
-////	        tmp = encipher.doFinal(tmp);
-////	        return tmp;
-////    	} catch (GeneralSecurityException e){
-////    		initEncipher(encipher, key);
-////    		throw e;
-////    	}
-//    }
-    
-//    static void flip(byte [] a){
-//    	for (int i = 0, j = a.length - 1; i < a.length/2; i ++, j --){
-//    		byte tmp = a[i];
-//    		a[i] = a[j];
-//    		a[j] = tmp;
-//    	}
-//    }
-//
-//    static void xor(byte [] a){
-//    	for(int i = 0; i < a.length - 1; i++)
-//    		a[i + 1] ^= a[i];
-//    }
-//
-//    static void unxor(byte [] a){
-//    	for(int i = a.length - 1; i > 0; --i)
-//    		a[i] ^= a[i-1];
-//    }
-//
-//    static byte [] decryptBlock(Cipher decipher, byte [] bufEnc) throws GeneralSecurityException {
-//    	return decryptBlock(decipher, bufEnc, 0, bufEnc.length);
-//    }
-//    static byte [] decryptBlock(Cipher decipher, byte [] bufEnc, int start, int len) throws GeneralSecurityException {
-//        byte [] tmp = new byte[len - start]; 
-//        System.arraycopy(bufEnc, start, tmp, 0, len); 
-//        tmp = decipher.doFinal(tmp);
-//        unxor(tmp);
-//        flip(tmp);
-//        tmp = decipher.doFinal(tmp);
-//        unxor(tmp);
-//        return tmp;
-////    	try {
-////	        byte [] tmp = new byte[len - start]; 
-////	        System.arraycopy(bufEnc, start, tmp, 0, len); 
-////	        tmp = decipher.doFinal(tmp);
-////	        unxor(tmp);
-////	        flip(tmp);
-////	        tmp = decipher.doFinal(tmp);
-////	        unxor(tmp);
-////	        return tmp;
-////    		
-////		} catch (GeneralSecurityException e) {
-////			initDecipher(decipher, key, iv);
-////			throw e;
-////		}
-//    }
-    
-    /**
-     * Should be overridden together with encrypt/decrypt block
-     * to return correct encrypted size
-     * Reverse function getEncAmt(int encSize) cannot be made because of padding in encrypted data
-     * @param decAmt
-     * @return
-     */
-    protected int getEncAmt(int decAmt){
-        return encipher.getOutputSize(encipher.getOutputSize(decAmt));
-    }
     
 	volatile boolean mIsOpen;
 
@@ -380,7 +210,8 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			//long lastIndex = sizeEnc - 1;
 			//lastBlock = getBlockNum(lastIndex, (long)encryptedDataBlockSize);
 			int lastBlockRemains = getBlockPos(sizeEnc - 1, encBlockSize) + 1;//bytes remain in the last block
-			if (getEncAmt(lastBlockRemains) == lastBlockRemains)//check if remainder decrypts to the same amount of bytes 
+//			if (getEncAmt(lastBlockRemains) == lastBlockRemains)//check if remainder decrypts to the same amount of bytes 
+			if (CipherUtils.getEncAmt(encipher, lastBlockRemains) == lastBlockRemains)//check if remainder decrypts to the same amount of bytes 
 				return sizeDec + lastBlockRemains;
 			byte [] remainderArray = new byte[lastBlockRemains];
 			//if (lastBlockRemainds == 0)
@@ -422,28 +253,6 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 		}
 	}
 	
-//	public long sizeOld() throws IOException {
-//		checkOpen();
-//		//position may be higher that underChannel size, when writing to buffer		
-//		if ((getBlockNum(mPlainPosition, plainDataBlockSize) * encryptedDataBlockSize) >= mChannel.size())
-//			return mPlainPosition;
-//		//long size measured in encrypted size
-//		long longSize = mChannel.size();
-//		int intSize = (int)longSize;
-//		if (intSize == longSize)//if size is measured in int
-//			return decipher.getOutputSize(intSize);
-//		else{ //if size is measured in long
-//			//long blockSize = encryptedDataBlockSize;
-//			//long blocksCnt = getBlockNum(longSize, encryptedDataBlockSize);//(longSize / blockSize);
-//			long size1 = getBlockNum(longSize, encryptedDataBlockSize) * plainDataBlockSize;//blocksCnt * plainDataBlockSize;
-//			//remainder will be inaccurate if padding is used in encryption
-//			//because encrypting 10 bytes will occupy 32 bytes, and remainder will return 32 (when actually 10 data + 22 padding)
-//			int remainder = (int) (longSize % (long)encryptedDataBlockSize);//(int) (longSize - (blockSize * blocksCnt)); 
-//			long size2 = decipher.getOutputSize(remainder);
-//			return size1 + size2;
-//		}
-//		
-//	}
 	
 	/**
 	 * @return position in decrypted data
@@ -528,7 +337,8 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 				if (props.contains(BlockOperationOptions.STOPONPOSITIONERROR))
 					return -1;
 			}
-			int lenEnc = getEncAmt(len);
+			//int lenEnc = getEncAmt(len);
+			int lenEnc = CipherUtils.getEncAmt(encipher, len);
 			ByteBuffer bufEnc = ByteBuffer.wrap(blockEnc, 0, lenEnc);
 			int readAmt = 0;
 			int readOverall = 0;
@@ -562,19 +372,6 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			return dec.length;
 		}
 	}
-	
-//	protected enum BlockOperationOptions
-//	{
-//		/**
-//		 * non interruptible read/write
-//		 */
-//		NONINTERRUPTIBLE,
-//		/**
-//		 * do not perform read/write if unable to set position in encrypted (underlying) channel
-//		 */
-//		STOPONPOSITIONERROR
-//	}
-	
 	
 	private static class BlockOperationOptions
 	{
@@ -921,7 +718,8 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			}
 			
 			//stream cypher - truncate every time
-			if (getEncAmt(newBlockPos) == newBlockPos){
+//			if (getEncAmt(newBlockPos) == newBlockPos){
+			if (CipherUtils.getEncAmt(encipher, newBlockPos) == newBlockPos){
 				mChannel.truncate(posEnc + newBlockPos);
 			}else
 			//block cipher
