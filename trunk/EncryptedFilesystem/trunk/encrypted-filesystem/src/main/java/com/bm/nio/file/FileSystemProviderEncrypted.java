@@ -41,6 +41,7 @@ import java.util.TreeMap;
 
 
 import com.bm.nio.channels.SeekableByteChannelEncrypted;
+import com.sun.nio.zipfs.ZipFileSystem;
 import com.sun.nio.zipfs.ZipFileSystemProvider;
 
 import static com.bm.nio.file.FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CREATE_UNDERLYING_FILE_SYSTEM;
@@ -494,20 +495,25 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	public void move(Path source, Path target, CopyOption... options)
 			throws IOException {
 		//TODO: implement later
+		//should be able to move between different filesystems, not only encrypted
 		throw new UnsupportedOperationException();
 		
 	}
 
 	@Override
 	public boolean isSameFile(Path path, Path path2) throws IOException {
-		// TODO Auto-generated method stub
-		return false;
+		// TOTEST
+		if (!(path instanceof PathEncrypted) || !(path2 instanceof PathEncrypted))
+			throw new ProviderMismatchException();
+		return Files.isSameFile(((PathEncrypted)path).getFullUnderPath(), ((PathEncrypted)path2).getFullUnderPath());
 	}
 
 	@Override
 	public boolean isHidden(Path path) throws IOException {
-		// TODO Auto-generated method stub
-		return false;
+		if (!(path instanceof PathEncrypted))
+			throw new ProviderMismatchException();
+		// TOTEST
+		return Files.isHidden(((PathEncrypted)path).getFullUnderPath());
 	}
 
 	@Override
@@ -522,7 +528,8 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 		//TOTEST: method could be incorrect!
 		if (!(path instanceof PathEncrypted))
 			throw new ProviderMismatchException();
-		Path p = ((PathEncrypted)path.toAbsolutePath()).getUnderPath();
+		//Path p = ((PathEncrypted)path.toAbsolutePath()).getUnderPath();
+		Path p = ((PathEncrypted)path).getFullUnderPath();
 		//Path p = ((PathEncrypted)path.toAbsolutePath().normalize()).getUnderPath();
 		p.getFileSystem().provider().checkAccess(p, modes);
 	}

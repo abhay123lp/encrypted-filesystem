@@ -28,8 +28,11 @@ import java.util.Set;
 
 import javax.crypto.Cipher;
 
+import sun.nio.fs.WindowsFileSystemProvider;
+
 import com.bm.nio.channels.SeekableByteChannelEncrypted;
 import com.bm.nio.utils.CipherUtils;
+import com.sun.nio.zipfs.ZipFileSystem;
 
 
 /**
@@ -396,7 +399,7 @@ public class FileSystemEncrypted extends FileSystem {
 	 * Sets custom decoder, for example base64 to decode filenames and file contents
 	 */
 	public void setNameDecoder(){
-		//TODO: implement
+		//TODO: implement 
 		//TODO: make it to save/load implementing class from properties
 	}
 	
@@ -473,8 +476,7 @@ public class FileSystemEncrypted extends FileSystem {
 	
 	@Override
 	public boolean isReadOnly() {
-		// TODO Auto-generated method stub
-		return false;
+		return mRoot.getFileSystem().isReadOnly();
 	}
 
 	@Override
@@ -503,6 +505,7 @@ public class FileSystemEncrypted extends FileSystem {
 	@Override
 	public UserPrincipalLookupService getUserPrincipalLookupService() {
 		// TODO Auto-generated method stub
+		
 		return null;
 	}
 

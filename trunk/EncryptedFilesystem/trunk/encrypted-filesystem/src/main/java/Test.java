@@ -17,6 +17,7 @@ import java.nio.file.LinkOption;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
@@ -78,7 +79,8 @@ public class Test {
 //		System.out.println(encipher.getProvider().getName());
 		
 		//new Test().testSynchronized();
-		System.out.println(new String(new byte [] {50, 49, 69, 69, 70, 50, 69, 66, 47, 50, 48, 69, 70, 70, 51, 69, 65, 47}));
+		//System.out.println(new String(new byte [] {50, 49, 69, 69, 70, 50, 69, 66, 47, 50, 48, 69, 70, 70, 51, 69, 65, 47}));
+		new Test().test2Methods();
 	}
 	
 	public void testStartsForZip() throws Exception{
@@ -305,4 +307,26 @@ public class Test {
 		System.out.println(c1.getC0().getI());
 		
 	}
+	
+	//testing if it's possible to know if method belongs to child or parent
+	//needed for CipherUtils - getEncAmount and enc/dec block
+	public void test2Methods() throws Exception {
+		class C1 {
+			public void meth1(){};
+			public void meth2(){};
+		}
+		class C2 extends C1 {
+			@Override
+			public void meth1() {};
+			@Override
+			public void meth2() {};
+		};
+		
+		C1 c = new C2();
+		System.out.println(c.getClass().getMethod("meth1").getDeclaringClass().equals(c.getClass().getMethod("meth2").getDeclaringClass()));
+//		Path srcPath, dstPath;
+//		srcPath = Paths.get("");
+//		Files.copy(srcPath, dstPath, StandardCopyOption.REPLACE_EXISTING);
+	}
+	
 }

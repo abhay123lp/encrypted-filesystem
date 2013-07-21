@@ -1,13 +1,18 @@
 package com.bm.nio.file;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.nio.channels.ByteChannel;
 import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
@@ -18,6 +23,9 @@ import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.WatchService;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.spi.FileSystemProvider;
@@ -325,6 +333,162 @@ public class FileSystemEncryptedTest {
 		Assert.assertEquals(ws1.hashCode(), ws2.hashCode());
 	}
 	
+	@Test
+	public void testGetPath() throws Exception {
+		FileSystem fsTest = TestUtils.newTempFieSystem(mFspe, TestUtils.SANDBOX_PATH + "/encGetPath");
+		Path p = fsTest.getPath("dir1", "dir2");
+		Files.createDirectories(p);
+		//TODO:
+	}
+	
+	/**
+	 * At leas should not throw exception
+	 * @throws Exception
+	 */
+	@Test
+	public void testSimple() throws Exception {
+		FileSystem fsTest = TestUtils.newTempFieSystem(mFspe, TestUtils.SANDBOX_PATH + "/encGetPath");
+		Path p1 = fsTest.getPath("dir1", "dir2", "1.txt");
+		Files.createDirectories(p1.subpath(0, 2));
+		Files.createFile(p1);
+		SeekableByteChannel bc = Files.newByteChannel(p1, StandardOpenOption.WRITE, StandardOpenOption.READ);
+		bc.write(ByteBuffer.wrap("1234567890".getBytes()));
+		bc.position(3);
+		byte [] b = new byte[10];
+		bc.read(ByteBuffer.wrap(b));
+		bc.close();
+	}
+	
+	
+	public static final String TEST_COPY_SRC = "./src/test/copy_src/";
+	public static final String TEST_COPY_TARGET = "./src/test/copy_target/";
+	
+	//@Test
+	public void testCopy() throws Exception {
+		//TODO:
+		// 1. Use copyDirectory to copy from existing directory
+		// 2. Write function to validate copied data
+		
+		Path src = Paths.get(TEST_COPY_SRC);//new File(TEST_COPY_SRC);
+		Path enc = TestUtils.newTempFieSystem(mFspe, TestUtils.SANDBOX_PATH + "/testCopy").getPath("/").toAbsolutePath();//TODO: make work without absolute path
+		Path target = Paths.get(TEST_COPY_TARGET);//new File(TestUtils.SANDBOX_PATH + "/testCopy");
+		//Path 
+		//prepare
+		TestUtils.deleteFolderContents(enc.toFile());
+		TestUtils.deleteFolderContents(target.toFile());
+		//
+
+		copyDirectory(src, enc);
+		copyDirectory(enc, target);//TODO: make it work
+		//copyDirectory(enc, target, true);
+		
+		Assert.assertTrue(equals(src, target));
+	}
+	
+	public boolean equals(Path sourceLocation , Path targetLocation){
+		//TODO:
+		return true;
+	}
+	
+	 public class CopyDirVisitor extends SimpleFileVisitor<Path> {
+		    private Path fromPath;
+		    private Path toPath;
+		    private StandardCopyOption copyOption = StandardCopyOption.REPLACE_EXISTING;
+		    
+		    public CopyDirVisitor(Path from, Path to){
+		    	fromPath = from;
+		    	toPath = to;
+		    }
+		    @Override
+		    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+		    	final Path p1 = toPath.resolve(fromPath.relativize(dir).toString());
+		        if(!Files.exists(p1)){
+		            Files.createDirectory(p1);
+		        }
+		        return FileVisitResult.CONTINUE;
+		    }
+
+		    @Override
+		    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+		    	final Path p1 = toPath.resolve(fromPath.relativize(file).toString());
+		        Files.copy(file, p1, copyOption);
+		        return FileVisitResult.CONTINUE;
+		    }
+		}
+	 
+	public void copyDirectory(Path sourceLocation , Path targetLocation)
+		    throws IOException {
+		Files.walkFileTree(sourceLocation, new CopyDirVisitor(sourceLocation, targetLocation));
+    }
+	
+	
+	public void copyDirectory1(Path sourceLocation , Path targetLocation)
+		    throws IOException {
+
+        //if (sourceLocation.isDirectory()) {
+		if (Files.isDirectory(sourceLocation)) {
+            //if (!targetLocation.exists()) {
+            if (!Files.exists(targetLocation)) {
+           		Files.createDirectory(targetLocation);
+            }
+
+            try (DirectoryStream<Path> ds = Files.newDirectoryStream(sourceLocation)){
+            	for (Path p : ds){
+            		//not optimal, I know
+            		copyDirectory1(p , targetLocation.resolve(sourceLocation.relativize(p).toString()));
+            	}
+            }
+            
+            
+//            String[] children = sourceLocation.list();
+//            for (int i=0; i<children.length; i++) {
+//                copyDirectory(new File(sourceLocation, children[i]),
+//                        new File(targetLocation, children[i]), j7Copy);
+//            }
+        } else {
+
+       		Files.copy(sourceLocation, targetLocation);
+        }
+    }
+	
+	
+	public void copyDirectoryOld(File sourceLocation , File targetLocation, boolean j7Copy)
+		    throws IOException {
+
+		        if (sourceLocation.isDirectory()) {
+		            if (!targetLocation.exists()) {
+		            	if (j7Copy)
+		            		Files.createDirectory(targetLocation.toPath());
+		            	else
+		            		targetLocation.mkdir();
+		            }
+
+		            String[] children = sourceLocation.list();
+		            for (int i=0; i<children.length; i++) {
+		                copyDirectoryOld(new File(sourceLocation, children[i]),
+		                        new File(targetLocation, children[i]), j7Copy);
+		            }
+		        } else {
+
+		        	if (j7Copy){
+		        		Files.copy(sourceLocation.toPath(), targetLocation.toPath());
+		        	}
+		        	else{
+			            InputStream in = new FileInputStream(sourceLocation);
+			            OutputStream out = new FileOutputStream(targetLocation);
+	
+			            // Copy the bits from instream to outstream
+			            byte[] buf = new byte[1024];
+			            int len;
+			            while ((len = in.read(buf)) > 0) {
+			                out.write(buf, 0, len);
+			            }
+			            in.close();
+			            out.close();
+		        	}
+		        }
+		    }
+
 	//@Test
 //	public void crypterTest() throws Exception{
 ////        Crypter decrypter = new Crypter("t5fbrxrb");
