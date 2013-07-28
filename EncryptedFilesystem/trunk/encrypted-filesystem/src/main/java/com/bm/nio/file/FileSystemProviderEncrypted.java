@@ -40,8 +40,11 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 
+import sun.nio.fs.WindowsFileSystemProvider;
+
 
 import com.bm.nio.channels.SeekableByteChannelEncrypted;
+import com.bm.nio.file.utils.TestUtils;
 import com.sun.nio.zipfs.ZipFileSystem;
 import com.sun.nio.zipfs.ZipFileSystemProvider;
 
@@ -474,10 +477,14 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 		if (Files.isDirectory(source, linkOptions)){
 			Files.createDirectory(target);
 		} else {
+			
+			int bufferSize = 4*1024;//12
+			if (source.getFileSystem() instanceof FileSystemEncrypted)
+				bufferSize = Math.max(bufferSize, ((FileSystemEncrypted)source.getFileSystem()).getConfig().getBlockSize());
+			if (target.getFileSystem() instanceof FileSystemEncrypted)
+				bufferSize = Math.max(bufferSize, ((FileSystemEncrypted)target.getFileSystem()).getConfig().getBlockSize());
 			//making threadsafe. There is more sophisticated way using new buffer with weak refs for every concurrent thread
-//			final byte [] copyBuffer = new byte [4*1024];
-			//DEBUG!
-			final byte [] copyBuffer = new byte [12];
+			final byte [] copyBuffer = new byte [bufferSize];
 			final ByteBuffer copyBufferB = ByteBuffer.wrap(copyBuffer);
 			
 			final Set<OpenOption> srcOpts = new HashSet<>();
@@ -486,9 +493,9 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 			trgOpts.add(StandardOpenOption.WRITE);
 			trgOpts.add(StandardOpenOption.CREATE_NEW);
 			//StandardOpenOption.APPEND
-			try(SeekableByteChannel srcChannel = this.newByteChannel(source, srcOpts, (FileAttribute<Object>)null)){
-				try(SeekableByteChannel trgChannel = this.newByteChannel(target, trgOpts, (FileAttribute<Object>)null)){
-					while (srcChannel.read(copyBufferB) > 0 || copyBufferB.position() != 0){
+			try(SeekableByteChannel srcChannel = Files.newByteChannel(source, srcOpts)){
+				try(SeekableByteChannel trgChannel = Files.newByteChannel(target, trgOpts)){
+					while (srcChannel.read(copyBufferB) >= 0 || copyBufferB.position() != 0){
 						copyBufferB.flip();
 						copyBufferB.position(trgChannel.write(copyBufferB));
 						copyBufferB.compact();
