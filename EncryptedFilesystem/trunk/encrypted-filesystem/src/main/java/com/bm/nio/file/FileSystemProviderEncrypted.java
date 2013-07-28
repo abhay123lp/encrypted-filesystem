@@ -23,6 +23,7 @@ import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.ProviderMismatchException;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileAttribute;
@@ -457,21 +458,49 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	@Override
 	public void copy(Path source, Path target, CopyOption... options)
 			throws IOException {
-		//making threadsafe. There is more sophisticated way using new buffer with weak refs for every concurrent thread
-		final byte [] copyBuffer = new byte [4*1024];
-		final ByteBuffer copyBufferB = ByteBuffer.wrap(copyBuffer);
+		boolean replaceExisting = false, copyAttributes = false;
+		LinkOption [] linkOptions = new LinkOption[0];
+		for (CopyOption co : options)
+			if (co.equals(StandardCopyOption.REPLACE_EXISTING))
+				replaceExisting = true;
+			else if (co.equals(LinkOption.NOFOLLOW_LINKS))
+				linkOptions = new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
+			else if (co.equals(StandardCopyOption.COPY_ATTRIBUTES))
+				copyAttributes = true;
 		
-		final Set<OpenOption> srcOpts = new HashSet<>();
-		srcOpts.add(StandardOpenOption.READ);
-		final Set<OpenOption> trgOpts = new HashSet<>();
-		trgOpts.add(StandardOpenOption.WRITE);
-		//StandardOpenOption.APPEND
-		SeekableByteChannel srcChannel = this.newByteChannel(source, srcOpts, (FileAttribute<Object>)null);
-		SeekableByteChannel trgChannel = this.newByteChannel(target, trgOpts, (FileAttribute<Object>)null);
-		while (srcChannel.read(copyBufferB) > 0){
-			trgChannel.write(copyBufferB);
+		
+		if (replaceExisting)
+			Files.deleteIfExists(target);
+		if (Files.isDirectory(source, linkOptions)){
+			Files.createDirectory(target);
+		} else {
+			//making threadsafe. There is more sophisticated way using new buffer with weak refs for every concurrent thread
+//			final byte [] copyBuffer = new byte [4*1024];
+			//DEBUG!
+			final byte [] copyBuffer = new byte [12];
+			final ByteBuffer copyBufferB = ByteBuffer.wrap(copyBuffer);
+			
+			final Set<OpenOption> srcOpts = new HashSet<>();
+			srcOpts.add(StandardOpenOption.READ);
+			final Set<OpenOption> trgOpts = new HashSet<>();
+			trgOpts.add(StandardOpenOption.WRITE);
+			trgOpts.add(StandardOpenOption.CREATE_NEW);
+			//StandardOpenOption.APPEND
+			try(SeekableByteChannel srcChannel = this.newByteChannel(source, srcOpts, (FileAttribute<Object>)null)){
+				try(SeekableByteChannel trgChannel = this.newByteChannel(target, trgOpts, (FileAttribute<Object>)null)){
+					while (srcChannel.read(copyBufferB) > 0 || copyBufferB.position() != 0){
+						copyBufferB.flip();
+						copyBufferB.position(trgChannel.write(copyBufferB));
+						copyBufferB.compact();
+					}
+				}
+			}
 		}
-		//ZipFileSystemProvider zp; zp.copy(src, target, options)
+		
+		if (copyAttributes){
+			//TODO:  copy attributes as by StandardCopyOption.COPY_ATTRIBUTES
+			//ZipFileSystemProvider zp; zp.copy(src, target, options)
+		}
 		
 	}
 
