@@ -162,7 +162,11 @@ public class TestUtils {
 	}
 	
 	//=== TIMER UTILS ===
-	private static final Map<String, AtomicLong> timers = new HashMap<String, AtomicLong>();
+	private static class PerformanceBean {
+		AtomicLong time = new AtomicLong(0);
+		AtomicLong hits = new AtomicLong(0);
+	}
+	private static final Map<String, PerformanceBean> timers = new HashMap<String, PerformanceBean>();
 	private static final ThreadLocal<Map<String, Long>> timersLocal= new ThreadLocal<Map<String, Long>>(){
 		protected java.util.Map<String,Long> initialValue() {
 			return new HashMap<String, Long>();
@@ -173,14 +177,23 @@ public class TestUtils {
 		if (timers.get(timer) == null){
 			synchronized (timers) {
 				if (timers.get(timer) == null)
-					timers.put(timer, new AtomicLong(0));
+					timers.put(timer, new PerformanceBean());
 			}
 		}
 	}
 		
 	private static void addTime(String timer, long time){
 		createTimerIfMissing(timer);
-		timers.get(timer).getAndAdd(time);
+		timers.get(timer).time.getAndAdd(time);
+		timers.get(timer).hits.getAndIncrement();
+	}
+
+	public static void resetTime(String timer){
+		createTimerIfMissing(timer);
+		final Long time = - timers.get(timer).time.get();
+		timers.get(timer).time.getAndAdd(time);
+		final Long hits = - timers.get(timer).hits.get();
+		timers.get(timer).hits.addAndGet(hits);
 	}
 
 	public static void startTime(String timer, long time){
@@ -212,12 +225,16 @@ public class TestUtils {
 	
 	public static Long getTime(String timer){
 		createTimerIfMissing(timer);
-		return timers.get(timer).get();
+		return timers.get(timer).time.get();
+	}
+	
+	public static Long getHits(String timer){
+		createTimerIfMissing(timer);
+		return timers.get(timer).hits.get();
 	}
 	
 	public static String printTime(String timer){
-		return timer + ": " + getTime(timer);
+		return timer + ": " + getTime(timer) + "; hits: " + getHits(timer);
 	}
 
-	
 }

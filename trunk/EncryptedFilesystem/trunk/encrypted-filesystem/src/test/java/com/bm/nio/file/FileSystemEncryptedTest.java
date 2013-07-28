@@ -366,19 +366,20 @@ public class FileSystemEncryptedTest {
 	
 	@Test
 	public void testCopy() throws Exception {
-		//TODO:
-		// 1. Use copyDirectory to copy from existing directory
-		// 2. Write function to validate copied data
-		
-		Path src = Paths.get(TEST_COPY_SRC);//new File(TEST_COPY_SRC);
-		Path enc = TestUtils.newTempFieSystem(mFspe, TestUtils.SANDBOX_PATH + "/testCopy").getPath("/");
-		//another type of encryption
 		ConfigEncrypted conf = new ConfigEncrypted();
-		conf.setBlockSize(3);//TODO: also try 11
+//		conf.setBlockSize(3);//TODO: also try 11
 		conf.setTransformation("AES/CBC/PKCS5Padding");//try
 		Map<String, Object> env = new HashMap<String, Object>();
 		env.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CONFIG, conf);
 		env.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_PASSWORD, "password1".toCharArray());
+		
+		//TODO:
+		// 1. Use copyDirectory to copy from existing directory
+		// 2. Write function to validate copied data
+
+		Path src = Paths.get(TEST_COPY_SRC);//new File(TEST_COPY_SRC);
+		Path enc = TestUtils.newTempFieSystem(mFspe, TestUtils.SANDBOX_PATH + "/testCopy").getPath("/");
+		//another type of encryption
 		Path enc1 = TestUtils.newTempFieSystem(mFspe, TestUtils.SANDBOX_PATH + "/testCopy1", env).getPath("/");
 //		Path enc = TestUtils.newTempFieSystem(mFspe, TestUtils.SANDBOX_PATH + "/testCopy").getPath("/").toAbsolutePath();
 		//
@@ -388,28 +389,38 @@ public class FileSystemEncryptedTest {
 		//prepare
 		//TestUtils.deleteFolderContents(enc.toFile());
 		//TestUtils.deleteFolderContents(enc1.toFile());
+		TestUtils.startTime("Copy0");
+		copyDirectory(src, target);
+		TestUtils.endTime("Copy0");
 		TestUtils.deleteFolderContents(target.toFile());
 		//
 
-//		copyDirectory(src, target);
 		TestUtils.startTime("Copy1");
 		copyDirectory(src, enc);//DONE: does not work correctly with block ciphers. Fixed bug in write function
 		TestUtils.endTime("Copy1");
 		
 //		copyDirectory(src, enc);//DONE: test this also, it might just start writing from beginning without deleting the whole file (but maybe just because of different buffer size 12 vs 8k)
+		TestUtils.resetTime("encrypt");
 		TestUtils.startTime("Copy2");
 		copyDirectory(enc, enc1);//DONE: does not copying correctly. Fixed bug in write function
 		TestUtils.endTime("Copy2");
+		System.out.println(TestUtils.printTime("decrypt"));
+		System.out.println(TestUtils.printTime("encrypt"));
 		
 		TestUtils.startTime("Copy3");
 		copyDirectory(enc1, target);//DONE: make it work
 		TestUtils.endTime("Copy3");
 		//copyDirectory(enc, target, true);
 		
+		System.out.println(TestUtils.printTime("Copy0"));
 		System.out.println(TestUtils.printTime("Copy1"));
 		System.out.println(TestUtils.printTime("Copy2"));
-		System.out.println(TestUtils.printTime("saveBlock"));
-		System.out.println(TestUtils.printTime("write"));
+//		System.out.println(TestUtils.printTime("saveBlock"));
+//		System.out.println(TestUtils.printTime("write"));
+		System.out.println(TestUtils.printTime("read"));
+		System.out.println(TestUtils.printTime("readStart"));
+		System.out.println(TestUtils.printTime("readMiddle"));
+		System.out.println(TestUtils.printTime("loadBlock"));
 		System.out.println(TestUtils.printTime("Copy3"));
 		
 		Assert.assertTrue(equals(src, target));
@@ -527,7 +538,9 @@ public class FileSystemEncryptedTest {
 		    @Override
 		    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 		    	final Path p1 = toPath.resolve(fromPath.relativize(file).toString());
-		        Files.copy(file, p1, copyOption);
+				FileSystemProviderEncrypted fpe1 = new FileSystemProviderEncrypted();
+				fpe1.copy(file, p1, copyOption);
+//		        Files.copy(file, p1, copyOption);
 		        return FileVisitResult.CONTINUE;
 		    }
 		}

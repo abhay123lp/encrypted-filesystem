@@ -28,6 +28,7 @@ import javax.crypto.spec.SecretKeySpec;
 import com.bm.nio.file.ConfigEncrypted;
 import com.bm.nio.file.ConfigEncrypted.Ciphers;
 import com.bm.nio.file.FileSystemEncrypted.FileSystemEncryptedEnvParams;
+import com.bm.nio.file.utils.TestUtils;
 import com.bm.nio.utils.CipherUtils;
 
 /**
@@ -315,6 +316,7 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 		// Encrypted: blockEnc1|blockEnc2|... |blockEncN|lastBlockEnc
 		// Decrypted: bockDec1|blockDec2|...|blockDecN|lastBlockDec
 		// load block where pos is located in
+
 		synchronized (mLock) {
 			//load decrypted size in case under channel was updated 
 			//long decSize = sizeInternal();
@@ -360,8 +362,11 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 				return 0;
 
 			//byte [] dec = decryptBlock(blockEnc, 0, readOverall);
+			//DEBUG!
+			TestUtils.startTime("decrypt");
 			byte [] dec = CipherUtils.decryptBlock(decipher, encBlock, 0, readOverall);
-			
+			TestUtils.endTime("decrypt");
+
 			System.arraycopy(dec, 0, decBlock, 0, dec.length);
 //			byte [] dec = decryptBlock(blockEnc, 0, lenEnc);
 //			System.arraycopy(dec, 0, block, 0, dec.length);
@@ -438,7 +443,10 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 				// write from the current position
 			}
 			//byte [] enc = encryptBlock(block, 0, len);
+			//DEBUG!
+			TestUtils.startTime("encrypt");
 			byte [] enc = CipherUtils.encryptBlock(encipher, decBlock, 0, len);
+			TestUtils.endTime("encrypt");
 			len = enc.length;
 			ByteBuffer buf = ByteBuffer.wrap(enc);
 			while (buf.remaining() > 0) {
@@ -607,14 +615,27 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			return len;
 		}
 	}
+	
 
 	@Override
 	public int read(ByteBuffer dst) throws IOException {
+		//DEBUG!
+		TestUtils.startTime("read");
+		int i = readInternal(dst);
+		TestUtils.endTime("read");
+		return i;
+	}
+
+//	@Override
+	public int readInternal(ByteBuffer dst) throws IOException {
 		checkOpen();
 		synchronized (mLock) {
 			final long decPosStart = mDecPos;
 			try {
-				loadBlock(mDecPos, BlockOperationOptions.STOPONPOSITIONERROR);
+				//DEBUG!
+				TestUtils.startTime("readStart");
+				loadBlock(mDecPos, BlockOperationOptions.STOPONPOSITIONERROR);//may cause low performance! (pt. 16.3.4.1)
+				TestUtils.endTime("readStart");
 			} catch (GeneralSecurityException e) {
 				//Do nothing as it was optional fill buffer at any read operation 
 			}
@@ -679,7 +700,10 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			//middle
 			while(dst.remaining() > decBlockSize){
 				try {
+					//DEBUG!
+					TestUtils.startTime("readMiddle");
 					int amt = loadBlock(mDecPos);//loading new block
+					TestUtils.endTime("readMiddle");
 					dst.put(decBlock, 0, amt);
 					positionInternal(mDecPos + amt);
 					if (amt < decBlockSize)//if end is reached
