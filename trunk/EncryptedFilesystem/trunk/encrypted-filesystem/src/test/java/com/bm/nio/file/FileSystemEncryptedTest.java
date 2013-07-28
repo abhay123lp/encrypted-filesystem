@@ -13,6 +13,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ByteChannel;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
+import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
@@ -363,33 +364,148 @@ public class FileSystemEncryptedTest {
 	public static final String TEST_COPY_SRC = "./src/test/copy_src/";
 	public static final String TEST_COPY_TARGET = "./src/test/copy_target/";
 	
-	//@Test
+	@Test
 	public void testCopy() throws Exception {
 		//TODO:
 		// 1. Use copyDirectory to copy from existing directory
 		// 2. Write function to validate copied data
 		
 		Path src = Paths.get(TEST_COPY_SRC);//new File(TEST_COPY_SRC);
-		Path enc = TestUtils.newTempFieSystem(mFspe, TestUtils.SANDBOX_PATH + "/testCopy").getPath("/").toAbsolutePath();//TODO: make work without absolute path
+		Path enc = TestUtils.newTempFieSystem(mFspe, TestUtils.SANDBOX_PATH + "/testCopy").getPath("/");
+		//another type of encryption
+		ConfigEncrypted conf = new ConfigEncrypted();
+		conf.setBlockSize(3);//TODO: also try 11
+		conf.setTransformation("AES/CBC/PKCS5Padding");//try
+		Map<String, Object> env = new HashMap<String, Object>();
+		env.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CONFIG, conf);
+		env.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_PASSWORD, "password1".toCharArray());
+		Path enc1 = TestUtils.newTempFieSystem(mFspe, TestUtils.SANDBOX_PATH + "/testCopy1", env).getPath("/");
+//		Path enc = TestUtils.newTempFieSystem(mFspe, TestUtils.SANDBOX_PATH + "/testCopy").getPath("/").toAbsolutePath();
+		//
+		
 		Path target = Paths.get(TEST_COPY_TARGET);//new File(TestUtils.SANDBOX_PATH + "/testCopy");
 		//Path 
 		//prepare
-		TestUtils.deleteFolderContents(enc.toFile());
+		//TestUtils.deleteFolderContents(enc.toFile());
+		//TestUtils.deleteFolderContents(enc1.toFile());
 		TestUtils.deleteFolderContents(target.toFile());
 		//
 
-		copyDirectory(src, enc);
-		copyDirectory(enc, target);//TODO: make it work
+//		copyDirectory(src, target);
+		TestUtils.startTime("Copy1");
+		copyDirectory(src, enc);//DONE: does not work correctly with block ciphers. Fixed bug in write function
+		TestUtils.endTime("Copy1");
+		
+//		copyDirectory(src, enc);//DONE: test this also, it might just start writing from beginning without deleting the whole file (but maybe just because of different buffer size 12 vs 8k)
+		TestUtils.startTime("Copy2");
+		copyDirectory(enc, enc1);//DONE: does not copying correctly. Fixed bug in write function
+		TestUtils.endTime("Copy2");
+		
+		TestUtils.startTime("Copy3");
+		copyDirectory(enc1, target);//DONE: make it work
+		TestUtils.endTime("Copy3");
 		//copyDirectory(enc, target, true);
 		
+		System.out.println(TestUtils.printTime("Copy1"));
+		System.out.println(TestUtils.printTime("Copy2"));
+		System.out.println(TestUtils.printTime("saveBlock"));
+		System.out.println(TestUtils.printTime("write"));
+		System.out.println(TestUtils.printTime("Copy3"));
+		
 		Assert.assertTrue(equals(src, target));
+		Assert.assertTrue(equals(src, enc));
+		Assert.assertTrue(equals(enc, target));
+		Assert.assertTrue(equals(enc, enc1));
 	}
 	
-	public boolean equals(Path sourceLocation , Path targetLocation){
-		//TODO:
+	public boolean equals(Path sourceLocation , Path targetLocation) throws IOException{
+		try {
+			time1 = 0;
+			time2 = 0;
+			Files.walkFileTree(sourceLocation, new DirCompareVisitor(sourceLocation, targetLocation));
+			Files.walkFileTree(targetLocation, new DirCompareVisitor(targetLocation, sourceLocation));
+			System.out.println("time1: " + time1 + "; time2: " + time2);
+		} catch (Exception e) {
+			return false;
+		}
 		return true;
 	}
 	
+    long time1, time2;
+	long t1, t2;
+	 public class DirCompareVisitor extends SimpleFileVisitor<Path> {
+		    private Path fromPath;
+		    private Path toPath;
+		    private StandardCopyOption copyOption = StandardCopyOption.REPLACE_EXISTING;
+		    
+		    public DirCompareVisitor(Path from, Path to){
+		    	fromPath = from;
+		    	toPath = to;
+		    }
+		    @Override
+		    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+		    	final Path p1 = toPath.resolve(fromPath.relativize(dir).toString());
+		        if(!Files.exists(p1) || !Files.isDirectory(p1)){
+		            throw new RuntimeException("Path " + p1.toString() + " is missing or is not directory");
+		        }
+		        return FileVisitResult.CONTINUE;
+		    }
+
+		    @Override
+		    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+		    	final Path p1 = toPath.resolve(fromPath.relativize(file).toString());
+		        if(!Files.exists(p1) || Files.isDirectory(p1)){
+		            throw new RuntimeException("Path " + p1.toString() + " is missing or is not a file");
+		        }
+
+		        if (!isEqual(Files.newInputStream(file), Files.newInputStream(p1))){
+		        	throw new RuntimeException("Path " + p1.toString() + " is not equals to " + file.toString());
+		        }
+		        //Files.copy(file, p1, copyOption);
+		        return FileVisitResult.CONTINUE;
+		    }
+		    
+		    private boolean isEqual(InputStream i1, InputStream i2)
+		            throws IOException {
+
+		        ReadableByteChannel ch1 = Channels.newChannel(i1);
+		        ReadableByteChannel ch2 = Channels.newChannel(i2);
+
+//		        ByteBuffer buf1 = ByteBuffer.allocateDirect(1024);
+//		        ByteBuffer buf2 = ByteBuffer.allocateDirect(1024);
+		        ByteBuffer buf1 = ByteBuffer.allocateDirect(16384);
+		        ByteBuffer buf2 = ByteBuffer.allocateDirect(16384);
+		        try {
+		            while (true) {
+		            	t1 = System.currentTimeMillis();
+		                int n1 = ch1.read(buf1);
+		                t2 = System.currentTimeMillis();
+		                time1 += t2 - t1;		                
+		                int n2 = ch2.read(buf2);
+		                t1 = System.currentTimeMillis();
+		                time2 += t1 - t2; 
+
+		                if (n1 == -1 || n2 == -1) return n1 == n2;
+
+		                buf1.flip();
+		                buf2.flip();
+
+		                for (int i = 0; i < Math.min(n1, n2); i++)
+		                    if (buf1.get() != buf2.get())
+		                        return false;
+
+		                buf1.compact();
+		                buf2.compact();
+		            }
+		        } finally {
+		            if (i1 != null) i1.close();
+		            if (i2 != null) i2.close();
+		        }
+		        
+		    }		    
+		}
+	 
+	 
 	 public class CopyDirVisitor extends SimpleFileVisitor<Path> {
 		    private Path fromPath;
 		    private Path toPath;
@@ -421,98 +537,6 @@ public class FileSystemEncryptedTest {
 		Files.walkFileTree(sourceLocation, new CopyDirVisitor(sourceLocation, targetLocation));
     }
 	
-	
-	public void copyDirectory1(Path sourceLocation , Path targetLocation)
-		    throws IOException {
-
-        //if (sourceLocation.isDirectory()) {
-		if (Files.isDirectory(sourceLocation)) {
-            //if (!targetLocation.exists()) {
-            if (!Files.exists(targetLocation)) {
-           		Files.createDirectory(targetLocation);
-            }
-
-            try (DirectoryStream<Path> ds = Files.newDirectoryStream(sourceLocation)){
-            	for (Path p : ds){
-            		//not optimal, I know
-            		copyDirectory1(p , targetLocation.resolve(sourceLocation.relativize(p).toString()));
-            	}
-            }
-            
-            
-//            String[] children = sourceLocation.list();
-//            for (int i=0; i<children.length; i++) {
-//                copyDirectory(new File(sourceLocation, children[i]),
-//                        new File(targetLocation, children[i]), j7Copy);
-//            }
-        } else {
-
-       		Files.copy(sourceLocation, targetLocation);
-        }
-    }
-	
-	
-	public void copyDirectoryOld(File sourceLocation , File targetLocation, boolean j7Copy)
-		    throws IOException {
-
-		        if (sourceLocation.isDirectory()) {
-		            if (!targetLocation.exists()) {
-		            	if (j7Copy)
-		            		Files.createDirectory(targetLocation.toPath());
-		            	else
-		            		targetLocation.mkdir();
-		            }
-
-		            String[] children = sourceLocation.list();
-		            for (int i=0; i<children.length; i++) {
-		                copyDirectoryOld(new File(sourceLocation, children[i]),
-		                        new File(targetLocation, children[i]), j7Copy);
-		            }
-		        } else {
-
-		        	if (j7Copy){
-		        		Files.copy(sourceLocation.toPath(), targetLocation.toPath());
-		        	}
-		        	else{
-			            InputStream in = new FileInputStream(sourceLocation);
-			            OutputStream out = new FileOutputStream(targetLocation);
-	
-			            // Copy the bits from instream to outstream
-			            byte[] buf = new byte[1024];
-			            int len;
-			            while ((len = in.read(buf)) > 0) {
-			                out.write(buf, 0, len);
-			            }
-			            in.close();
-			            out.close();
-		        	}
-		        }
-		    }
-
-	//@Test
-//	public void crypterTest() throws Exception{
-////        Crypter decrypter = new Crypter("t5fbrxrb");
-////        String encrypted = decrypter.encrypt("12345");//decrypter.encrypt("the quick brown fox jumps over the lazy dog");
-////        String decrypted = decrypter.decrypt(encrypted);
-////        System.out.println(decrypted);
-//		String text = "12345678901234567890";
-//		HashMap<String, Object> props = new HashMap<String, Object>();
-//		props.put(OutputStreamCrypto.BLOCK_SIZE, new Integer(8));
-//		props.put(OutputStreamCrypto.PASSWORD, "pwd".toCharArray());
-//		ByteOutputStream bo = new ByteOutputStream();
-//		
-//		OutputStreamCrypto os = new OutputStreamCrypto(bo, props);
-//		os.write(text.getBytes());
-//		os.close();
-//		//-------
-//		String res = new String(bo.getBytes(), 0, bo.getCount());
-//		System.out.println(res);
-//		System.out.println("Encrypted Data " + DatatypeConverter.printHexBinary(bo.getBytes()));
-//		//7E6FFA1B8478C294766DF81D827AC09A7865F01F827AC09A0
-//		//7E6FFA1B8478C294ADC05465B7788091C01B83944D9DC915DA2FE570
-//		//7E6FFA1B8478C294ADC05465B7788091C01B8394
-//		Assert.assertTrue(text.equals(res));
-//	}
 	
 	@After
 	public void clean() throws IOException {

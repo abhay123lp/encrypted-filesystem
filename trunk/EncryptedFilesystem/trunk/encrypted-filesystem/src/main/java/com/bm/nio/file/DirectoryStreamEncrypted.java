@@ -13,8 +13,8 @@ public class DirectoryStreamEncrypted implements DirectoryStream<Path> {
 	private DirectoryStream<Path> mUnderDirectoryStream;
 	private PathEncrypted mPath;
 	protected  DirectoryStreamEncrypted(PathEncrypted path, Filter<? super Path> filter) throws IOException {
-		mUnderDirectoryStream = Files.newDirectoryStream(path.getUnderPath());
-		//mUnderDirectoryStream = Files.newDirectoryStream(path.getFullUnderPath());
+		//mUnderDirectoryStream = Files.newDirectoryStream(path.getUnderPath());
+		mUnderDirectoryStream = Files.newDirectoryStream(path.getFullUnderPath());
 		mPath = path;
 	}
 	@Override
@@ -73,7 +73,11 @@ public class DirectoryStreamEncrypted implements DirectoryStream<Path> {
 			try {
 				if ((underPath = mUnderIterator.next()) == null)
 					return null;
+				if (underPath.equals(mPath.getFileSystem().getConfigPath()))//don't see config file
+					continue;
 				res = new PathEncrypted(mPath.getFileSystem(), underPath);
+				if (!mPath.isAbsolute())//result should be the same type as mPath. UnderPath is always absolute, see 16.3.1
+					res = res.getRelativePath();
 			} catch (InvalidPathException e) {
 				res = null;
 			}

@@ -141,7 +141,8 @@ public class PathEncrypted implements Path {
 	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public <A extends BasicFileAttributes> A readAttributes(Class<A> type, LinkOption... options) throws IOException {
-		return (A) new FileAttributesEncrypted(Files.readAttributes(mUnderPath, type, options)); 
+		//return (A) new FileAttributesEncrypted(Files.readAttributes(mUnderPath, type, options)); 
+		return (A) new FileAttributesEncrypted(Files.readAttributes(getFullUnderPath(), type, options)); 
 	}
 
     DirectoryStream<Path> newDirectoryStream(Filter<? super Path> filter) throws IOException {
@@ -343,8 +344,14 @@ public class PathEncrypted implements Path {
 	@Override
 	public PathEncrypted relativize(Path other) {
 		validatePath(other);
-		Path pathThis = this.getDecryptedPath();
-		Path pathOther = ((PathEncrypted)other).getDecryptedPath();
+		if (this.isAbsolute() != other.isAbsolute())
+			throw new IllegalArgumentException("'other' is different type of Path");//both should have root by the contract
+//		removing below with full underPath because for some filesystems (for example Windows)
+//		"".relativize("Dir") returns "..\Dir" !!! weird!
+//		Path pathThis = this.getDecryptedPath();
+//		Path pathOther = ((PathEncrypted)other).getDecryptedPath();
+		Path pathThis = this.getFullUnderPath();
+		Path pathOther = ((PathEncrypted)other).getFullUnderPath();
 		Path relative = pathThis.relativize(pathOther);
 		return mFs.toEncrypted(relative);
 	}

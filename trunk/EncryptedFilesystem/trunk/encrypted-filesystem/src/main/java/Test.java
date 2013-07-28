@@ -37,7 +37,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -80,7 +83,10 @@ public class Test {
 		
 		//new Test().testSynchronized();
 		//System.out.println(new String(new byte [] {50, 49, 69, 69, 70, 50, 69, 66, 47, 50, 48, 69, 70, 70, 51, 69, 65, 47}));
-		new Test().test2Methods();
+		//new Test().test2Methods();
+		//new Test().testBarrier();
+		System.out.println(Paths.get("").relativize(Paths.get("1.txt")));
+		System.out.println(Paths.get("").toAbsolutePath().relativize(Paths.get("1.txt").toAbsolutePath()));
 	}
 	
 	public void testStartsForZip() throws Exception{
@@ -329,4 +335,31 @@ public class Test {
 //		Files.copy(srcPath, dstPath, StandardCopyOption.REPLACE_EXISTING);
 	}
 	
+	public void testBarrier() throws Exception {
+		Random r1 = new Random(50);
+		System.out.println(r1.nextInt(50));
+		
+		final CyclicBarrier cb = new CyclicBarrier(5);
+		Runnable r = new Runnable() {
+			
+			@Override
+			public void run() {
+				try {
+					cb.await();
+					System.out.println(Thread.currentThread() + " " + System.currentTimeMillis());
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (BrokenBarrierException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		};
+		
+		for (int i = 0; i < 10; i ++){
+			new Thread(r).start();
+			Thread.sleep(500);
+		}
+	}
 }

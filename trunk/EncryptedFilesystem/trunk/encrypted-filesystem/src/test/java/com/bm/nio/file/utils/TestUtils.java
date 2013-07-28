@@ -13,6 +13,8 @@ import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.management.RuntimeErrorException;
 
@@ -151,9 +153,71 @@ public class TestUtils {
 	}
 	
 	public static FileSystem newTempFieSystem(FileSystemProviderEncrypted fpe, String path) throws IOException, URISyntaxException{
+		return newTempFieSystem(fpe, path, newEnv());
+	}
+	public static FileSystem newTempFieSystem(FileSystemProviderEncrypted fpe, String path, Map<String, ?> env) throws IOException, URISyntaxException{
 		File file = TestUtils.newTempDir(path); 
 		URI uri1Encrypted = TestUtils.uriEncrypted(TestUtils.fileToURI(file));
-		return fpe.newFileSystem(uri1Encrypted, newEnv());
+		return fpe.newFileSystem(uri1Encrypted, env);
+	}
+	
+	//=== TIMER UTILS ===
+	private static final Map<String, AtomicLong> timers = new HashMap<String, AtomicLong>();
+	private static final ThreadLocal<Map<String, Long>> timersLocal= new ThreadLocal<Map<String, Long>>(){
+		protected java.util.Map<String,Long> initialValue() {
+			return new HashMap<String, Long>();
+		};
+		};
+		
+	private static void createTimerIfMissing(String timer){
+		if (timers.get(timer) == null){
+			synchronized (timers) {
+				if (timers.get(timer) == null)
+					timers.put(timer, new AtomicLong(0));
+			}
+		}
+	}
+		
+	private static void addTime(String timer, long time){
+		createTimerIfMissing(timer);
+		timers.get(timer).getAndAdd(time);
 	}
 
+	public static void startTime(String timer, long time){
+		Map<String, Long> timers = timersLocal.get();
+		if (timers.get(timer) == null){
+			timers.put(timer, new Long(0));
+		}
+		timers.put(timer, time);
+	}
+	
+	public static void startTime(String timer){
+		startTime(timer, System.currentTimeMillis());
+	}
+
+	public static void endTime(String timer, long time){
+		Map<String, Long> timers = timersLocal.get();
+		if (timers.get(timer) == null){
+			timers.put(timer, new Long(0));
+		}
+		final long l = timers.get(timer);
+		timers.put(timer, time);
+		addTime(timer, time - l);
+	}
+	
+	public static void endTime(String timer){
+		endTime(timer, System.currentTimeMillis());
+	}
+	
+	
+	public static Long getTime(String timer){
+		createTimerIfMissing(timer);
+		return timers.get(timer).get();
+	}
+	
+	public static String printTime(String timer){
+		return timer + ": " + getTime(timer);
+	}
+
+	
 }
