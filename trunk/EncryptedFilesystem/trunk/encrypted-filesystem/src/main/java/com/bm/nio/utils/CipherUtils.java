@@ -6,6 +6,8 @@ import java.security.GeneralSecurityException;
 import javax.crypto.Cipher;
 import javax.xml.bind.DatatypeConverter;
 
+import com.bm.nio.file.utils.TestUtils;
+
 /**
  * To extend functionality use {@link #setImpl(CipherUtilsImpl)}.
  * Better than using factory template.
@@ -28,7 +30,7 @@ public class CipherUtils {
 	    public String decryptName(String encName, Cipher decipher) throws GeneralSecurityException;
 	}
 
-	private static class CipherUtilsImpl1 implements CipherUtilsImpl {
+	public static class CipherUtilsImplStandard implements CipherUtilsImpl {
 
 		@Override
 		public byte[] decryptBlockImpl(Cipher decipher, byte[] bufEnc,
@@ -106,7 +108,7 @@ public class CipherUtils {
 	}
 	
 	private static boolean isImplSet = false;
-	private static CipherUtilsImpl impl = new CipherUtilsImpl1();
+	private static CipherUtilsImpl impl = new CipherUtilsImplStandard();
 	private static Object lock = new Object();
 	/**
 	 * Sets implementation of encryption/encding functions Can only be set once.
