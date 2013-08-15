@@ -37,9 +37,11 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CyclicBarrier;
 
 import javax.crypto.Cipher;
@@ -361,5 +363,45 @@ public class Test {
 			new Thread(r).start();
 			Thread.sleep(500);
 		}
+	}
+	
+	public void testThreadLocal(){
+		final ThreadLocal<Integer> tl = new ThreadLocal<Integer>(){
+			volatile int i = 0;
+			Queue<Integer> freeObjects = new ConcurrentLinkedQueue<Integer>();
+			@Override
+			protected Integer initialValue() {
+				Integer il = freeObjects.poll();
+				if (il == null)
+					il = new Integer(i ++);//creating new
+				final Integer i1 = il;
+			    final Thread godot = Thread.currentThread();
+			    new Thread() {
+			      @Override public void run() {
+			        try {
+			          godot.join();
+			          freeObjects.offer(i1);
+			        } catch (InterruptedException e) {
+			          // thread dying; ignore
+			        }// finally {
+			        //  remove();
+			        //}
+			      }
+			    }.start();
+				return i1;
+			}
+			
+		};
+		
+		new Thread(new Runnable() {
+			
+			@Override
+			public void run() {
+				tl.get();
+				
+			}
+		}).start();
+
+		Thread.sleep(10000);
 	}
 }
