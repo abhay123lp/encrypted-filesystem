@@ -365,7 +365,7 @@ public class Test {
 		}
 	}
 	
-	public void testThreadLocal(){
+	public void testThreadLocal() throws Exception {
 		final ThreadLocal<Integer> tl = new ThreadLocal<Integer>(){
 			volatile int i = 0;
 			Queue<Integer> freeObjects = new ConcurrentLinkedQueue<Integer>();
