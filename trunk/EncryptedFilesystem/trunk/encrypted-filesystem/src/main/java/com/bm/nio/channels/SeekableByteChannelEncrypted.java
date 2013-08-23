@@ -129,22 +129,31 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
     	envConfig = props.get(FileSystemEncryptedEnvParams.ENV_CONFIG);
 		envPwd = props.get(FileSystemEncryptedEnvParams.ENV_PASSWORD);
 		final char [] pwd;
-		if (envPwd == null){
-			throw new IllegalArgumentException("Parameter " + FileSystemEncryptedEnvParams.ENV_PASSWORD + " must be present");
-		} else{
-			if (!(envPwd instanceof char [])){
-				throw new IllegalArgumentException("Parameter " + FileSystemEncryptedEnvParams.ENV_PASSWORD + " must be type of " + (new char [0]).getClass().getSimpleName());
-			} else{
-				pwd = (char []) envPwd;
-			}
-		}
-    	
+		final SecretKeySpec key;
+		final Ciphers c;
     	if (envConfig != null)
     		mConfig = ConfigEncrypted.newConfig((ConfigEncrypted)envConfig);
     	else
     		mConfig = new ConfigEncrypted();
+		
+		if (envPwd == null){
+			throw new IllegalArgumentException("Parameter " + FileSystemEncryptedEnvParams.ENV_PASSWORD + " must be present");
+		} else{
+			if (!(envPwd instanceof char [])){
+				if (!(envPwd instanceof SecretKeySpec)){
+					throw new IllegalArgumentException("Parameter " + FileSystemEncryptedEnvParams.ENV_PASSWORD + " must be type of " + (new char [0]).getClass().getSimpleName() + " or " + SecretKeySpec.class.getSimpleName());
+				} else{
+//					key = (SecretKeySpec) envPwd;
+					c = mConfig.newCiphers((SecretKeySpec) envPwd);
+				}
+			} else{
+//				pwd = (char []) envPwd;
+				c = mConfig.newCiphers((char []) envPwd);
+			}
+		}
     	
-    	final Ciphers c = mConfig.newCiphers(pwd);
+    	
+//    	final Ciphers c = mConfig.newCiphers(pwd);
     	encipher = c.getEncipher();
     	decipher = c.getDecipher();
     }
