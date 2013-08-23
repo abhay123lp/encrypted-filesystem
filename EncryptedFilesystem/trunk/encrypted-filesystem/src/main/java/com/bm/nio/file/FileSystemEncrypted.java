@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
 
 import sun.nio.fs.WindowsFileSystemProvider;
 
@@ -81,7 +82,8 @@ public class FileSystemEncrypted extends FileSystem {
 	private Path configPath;
 	private ConfigEncrypted config = new ConfigEncrypted();
 	//TODO: 14. consider taking PWD every time as a parameter
-	char [] pwd;
+	//char [] pwd;
+	SecretKeySpec key;
 	/**
 	 * @param provider
 	 * @param path - path of underlying filesystem, i.e. D:/enc1
@@ -90,7 +92,7 @@ public class FileSystemEncrypted extends FileSystem {
 	@SuppressWarnings("unchecked")
 	FileSystemEncrypted(FileSystemProviderEncrypted provider,
             Path path,
-            Map<String, ?> env) throws IOException{
+            Map<String, ?> env) throws IOException, GeneralSecurityException {
 		if (!Files.isDirectory(path))//DONE: test with ZipFileSystem - is it's root defined as file or folder?
 			throw new InvalidPathException(path.toString(), path + " can not be used as encrypted storage - not a directory");
 		// parse env
@@ -132,7 +134,7 @@ public class FileSystemEncrypted extends FileSystem {
 	 * @return config class
 	 * @throws IOException
 	 */
-	protected ConfigEncrypted loadConfig(Path path, Map<String, ?> env) throws IOException{
+	protected ConfigEncrypted loadConfig(Path path, Map<String, ?> env) throws IOException, GeneralSecurityException {
 		ConfigEncrypted res = config;
 		Object envConfFile, envConf, envPwd;
 		envConfFile = env.get(FileSystemEncryptedEnvParams.ENV_CONFIG_FILE);
@@ -148,7 +150,7 @@ public class FileSystemEncrypted extends FileSystem {
 				pwd = (char []) envPwd;
 			}
 		}
-		this.pwd = pwd;
+//		this.pwd = pwd;
 		//
 //		if (envConfFile != null && envConf != null)
 //			throw new IllegalArgumentException(
@@ -173,6 +175,7 @@ public class FileSystemEncrypted extends FileSystem {
 			Files.createFile(configPath);
 			res.saveConfig(configPath);
 		}
+		this.key = config.newSecretKeySpec(pwd);
 		return res;
 	}
 	
@@ -312,11 +315,11 @@ public class FileSystemEncrypted extends FileSystem {
 	}
 	
 	private String encryptName(String plainName) throws GeneralSecurityException {
-		return CipherUtils.encryptName(plainName, config.newCiphers(pwd).getEncipher());
+		return CipherUtils.encryptName(plainName, config.newCiphers(key).getEncipher());
 	}
 	
 	private String decryptName(String encName) throws GeneralSecurityException {
-		return CipherUtils.decryptName(encName, config.newCiphers(pwd).getDecipher());
+		return CipherUtils.decryptName(encName, config.newCiphers(key).getDecipher());
 	}
 
 
@@ -331,7 +334,7 @@ public class FileSystemEncrypted extends FileSystem {
 				Map<String, Object> props = new HashMap<String, Object>();
 				//DONE: 5.5.6. Add password or cipher to parameters. 
 				props.put(FileSystemEncryptedEnvParams.ENV_CONFIG, config);
-				props.put(FileSystemEncryptedEnvParams.ENV_PASSWORD, this.pwd);
+				props.put(FileSystemEncryptedEnvParams.ENV_PASSWORD, this.key);
 				ch = SeekableByteChannelEncrypted.newChannel(uch, props);//DONE: pass config encrypted
 			}
 			if (options.contains(StandardOpenOption.APPEND))

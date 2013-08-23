@@ -186,7 +186,11 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
             } else
             	throw new InvalidPathException(path.toString(), path + " can not be used as encrypted storage");
             FileSystemEncrypted encfs = null;
-           	encfs = new FileSystemEncrypted(this, path, env);
+           	try {
+				encfs = new FileSystemEncrypted(this, path, env);
+			} catch (GeneralSecurityException e) {
+				throw new IOException(e);
+			}
             filesystems.put(realPath, encfs);
             return encfs;
         }

@@ -188,8 +188,11 @@ public class ConfigEncrypted {
 	}
 	
 	public Ciphers newCiphers(char [] password) throws GeneralSecurityException{
-        final SecretKeySpec key = newKey(password);
-        
+        final SecretKeySpec key = newSecretKeySpec(password);
+        return newCiphers(key);
+	}
+	
+	public Ciphers newCiphers(SecretKeySpec key) throws GeneralSecurityException{
 		Cipher encipher;
 		Cipher decipher;
 		if (provider == null){
@@ -207,7 +210,7 @@ public class ConfigEncrypted {
         return ciphers;
 	}
 	
-	private SecretKeySpec newKey(char [] password) throws GeneralSecurityException {
+	public SecretKeySpec newSecretKeySpec(char [] password) throws GeneralSecurityException {
     	//--- transform password to a key ---
         SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
         KeySpec spec = new PBEKeySpec(password, salt.getBytes(), iterationCount, keyStrength);

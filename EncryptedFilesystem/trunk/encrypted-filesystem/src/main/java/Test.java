@@ -60,6 +60,7 @@ import org.simpleframework.xml.stream.Format;
 import sun.nio.fs.WindowsFileSystemProvider;
 
 import com.bm.nio.file.FileAttributesEncrypted;
+import com.bm.nio.file.IntegrationTest;
 import com.bm.nio.file.PathEncrypted;
 import com.sun.nio.zipfs.ZipFileSystem;
 import com.sun.nio.zipfs.ZipFileSystemProvider;
@@ -89,6 +90,7 @@ public class Test {
 		//new Test().testBarrier();
 		System.out.println(Paths.get("").relativize(Paths.get("1.txt")));
 		System.out.println(Paths.get("").toAbsolutePath().relativize(Paths.get("1.txt").toAbsolutePath()));
+		new IntegrationTest().testCopy();
 	}
 	
 	public void testStartsForZip() throws Exception{
