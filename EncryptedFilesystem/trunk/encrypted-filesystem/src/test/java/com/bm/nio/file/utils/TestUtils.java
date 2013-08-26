@@ -12,7 +12,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.spi.FileSystemProvider;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -162,11 +164,14 @@ public class TestUtils {
 	}
 	
 	//=== TIMER UTILS ===
-	private static class PerformanceBean {
+	private static class TimerBean {
+		String name;
 		AtomicLong time = new AtomicLong(0);
 		AtomicLong hits = new AtomicLong(0);
+		String group = null;
 	}
-	private static final Map<String, PerformanceBean> timers = new HashMap<String, PerformanceBean>();
+	private static final Map<String, List<String>> timerGroups = new HashMap<String, List<String>>();
+	private static final Map<String, TimerBean> timersMap = new HashMap<String, TimerBean>();
 	private static final ThreadLocal<Map<String, Long>> timersLocal= new ThreadLocal<Map<String, Long>>(){
 		protected java.util.Map<String,Long> initialValue() {
 			return new HashMap<String, Long>();
@@ -174,29 +179,46 @@ public class TestUtils {
 		};
 		
 	private static void createTimerIfMissing(String timer){
-		if (timers.get(timer) == null){
-			synchronized (timers) {
-				if (timers.get(timer) == null)
-					timers.put(timer, new PerformanceBean());
+		if (timersMap.get(timer) == null){
+			synchronized (timersMap) {
+				if (timersMap.get(timer) == null){
+					final TimerBean tb = new TimerBean();
+					tb.name = timer;
+					timersMap.put(timer, tb);
+				}
 			}
 		}
 	}
 		
 	private static void addTime(String timer, long time){
 		createTimerIfMissing(timer);
-		timers.get(timer).time.getAndAdd(time);
-		timers.get(timer).hits.getAndIncrement();
+		timersMap.get(timer).time.getAndAdd(time);
+		timersMap.get(timer).hits.getAndIncrement();
 	}
 
 	public static void resetTime(String timer){
 		createTimerIfMissing(timer);
-		final Long time = - timers.get(timer).time.get();
-		timers.get(timer).time.getAndAdd(time);
-		final Long hits = - timers.get(timer).hits.get();
-		timers.get(timer).hits.addAndGet(hits);
+		final Long time = - timersMap.get(timer).time.get();
+		timersMap.get(timer).time.getAndAdd(time);
+		final Long hits = - timersMap.get(timer).hits.get();
+		timersMap.get(timer).hits.addAndGet(hits);
 	}
 
-	public static void startTime(String timer, long time){
+	protected static void addToGroup(String timer, String timerGroup){
+		createTimerIfMissing(timer);
+		if (timersMap.get(timer).group != timerGroup){
+			timersMap.get(timer).group = timerGroup;
+			List<String> timers = timerGroups.get(timerGroup);
+			if (timers == null){
+				timers = new ArrayList<String>();
+				timerGroups.put(timerGroup, timers);
+			}
+			timers.add(timer);
+		}
+	}
+	
+	public static void startTime(String timer, long time, String timerGroup){
+		addToGroup(timer, timerGroup);
 		Map<String, Long> timers = timersLocal.get();
 		if (timers.get(timer) == null){
 			timers.put(timer, new Long(0));
@@ -205,7 +227,12 @@ public class TestUtils {
 	}
 	
 	public static void startTime(String timer){
-		startTime(timer, System.currentTimeMillis());
+		startTime(timer, null);
+	}
+
+	//TODO: consider using parentTimer instead of timerGroup
+	public static void startTime(String timer, String timerGroup){
+		startTime(timer, System.currentTimeMillis(), timerGroup);
 	}
 
 	public static void endTime(String timer, long time){
@@ -225,16 +252,39 @@ public class TestUtils {
 	
 	public static Long getTime(String timer){
 		createTimerIfMissing(timer);
-		return timers.get(timer).time.get();
+		return timersMap.get(timer).time.get();
 	}
 	
 	public static Long getHits(String timer){
 		createTimerIfMissing(timer);
-		return timers.get(timer).hits.get();
+		return timersMap.get(timer).hits.get();
 	}
 	
-	public static String printTime(String timer){
-		return timer + ": " + getTime(timer) + "; hits: " + getHits(timer);
+	public static String printTime(boolean reset, String... timers){
+		String res = "";
+		Long total = 0L;
+		for (String timer : timers){
+			total += getTime(timer);
+			res += timer + ": " + getTime(timer) + "; hits: " + getHits(timer) + "    ";
+			if (reset)
+				resetTime(timer);
+		}
+		return res + "    total: " + total;
 	}
 
+	public static String printTime(String... timers){
+		final String res = printTime(false, timers);
+		return res;
+	}
+
+	public static String printTimeGroup(String timerGroup){
+		final String res = printTimeGroup(false, timerGroup);
+		return res;
+	}
+
+	public static String printTimeGroup(boolean reset, String timerGroup){
+		List<String> timers = timerGroups.get(timerGroup);
+		final String res = printTime(reset, timers.toArray(new String [0]));
+		return res;
+	}
 }
