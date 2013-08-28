@@ -23,7 +23,9 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.bm.nio.channels.SeekableByteChannelEncrypted;
 import com.bm.nio.file.utils.TestUtils;
+import com.bm.nio.utils.CipherUtils;
 
 public class IntegrationTest {
 	private final FileSystemProviderEncrypted mFspe = TestUtils.getEncryptedProvider();
@@ -60,7 +62,7 @@ public class IntegrationTest {
 		Random r = new Random();
 		for (int i = 0; i < TEST_FILES.length; i +=2){
 			String name = TEST_FILES[i];
-			int len = Integer.valueOf(TEST_FILES[i + 1]);
+			int len = Integer.valueOf(TEST_FILES[i + 1]) * 1;
 			Path p = Paths.get(path + name).normalize();
 	
 			try {
@@ -144,8 +146,15 @@ public class IntegrationTest {
 		env2.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CONFIG, conf2);
 		env2.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_PASSWORD, "password1".toCharArray());
 
+		ConfigEncrypted ce = new ConfigEncrypted();
+		Map<String, Object> env1 = new HashMap<String, Object>();
+		env1.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CONFIG, ce);
+		env1.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_PASSWORD, "password1".toCharArray());
+		
+		ce.setBlockSize(100);
+		
 		Path src = Paths.get(srcPath);
-		Path enc = TestUtils.newTempFieSystem(mFspe, enc1Path).getPath("/");
+		Path enc = TestUtils.newTempFieSystem(mFspe, enc1Path, env1).getPath("/");
 		//another type of encryption
 		Path enc1 = TestUtils.newTempFieSystem(mFspe, enc2Path, env2).getPath("/");
 		
@@ -159,43 +168,53 @@ public class IntegrationTest {
 		TestUtils.endTime("Copy0");
 		System.out.println(TestUtils.printTime("Copy0"));
 		TestUtils.deleteFolderContents(target.toFile());
+		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		//
 
 		TestUtils.startTime("Copy1");
+		SeekableByteChannelEncrypted.l = 0;
 		copyDirectory(src, enc);//DONE: does not work correctly with block ciphers. Fixed bug in write function
 		TestUtils.endTime("Copy1");
 		System.out.println(TestUtils.printTime("Copy1"));
-		System.out.println(TestUtils.printTime("inv"));
+		System.out.println(TestUtils.printTimeGroup(true, "group"));
+		System.out.println(SeekableByteChannelEncrypted.l);
 		
 		TestUtils.startTime("Copy2");
 		copyDirectory(enc, enc1);//DONE: does not copying correctly. Fixed bug in write function
 		TestUtils.endTime("Copy2");
 		System.out.println(TestUtils.printTime("Copy2"));
+		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		TestUtils.startTime("Copy3");
 		copyDirectory(enc1, target);//DONE: make it work
 		TestUtils.endTime("Copy3");
+		System.out.println(TestUtils.printTime("Copy3"));
+		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		
 		TestUtils.startTime("Compare1");
 		Assert.assertTrue(equals(src, target));
 		TestUtils.endTime("Compare1");
 		System.out.println(TestUtils.printTime("Compare1"));
+		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		TestUtils.startTime("Compare2");
 		Assert.assertTrue(equals(src, enc));
 		TestUtils.endTime("Compare2");
 		System.out.println(TestUtils.printTime("Compare2"));
+		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		TestUtils.startTime("Compare3");
 		Assert.assertTrue(equals(enc, target));
 		TestUtils.endTime("Compare3");
 		System.out.println(TestUtils.printTime("Compare3"));
+		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		TestUtils.startTime("Compare4");
 		Assert.assertTrue(equals(enc, enc1));		
 		TestUtils.endTime("Compare4");
 		System.out.println(TestUtils.printTime("Compare4"));
+		System.out.println(TestUtils.printTimeGroup(true, "group"));
 	}
 	
 	public boolean equals(Path sourceLocation , Path targetLocation) throws IOException{
@@ -252,10 +271,12 @@ public class IntegrationTest {
 		        ByteBuffer buf2 = ByteBuffer.allocateDirect(16384);
 		        try {
 		            while (true) {
-		                int n1 = ch1.read(buf1);
-		                int n2 = ch2.read(buf2);
-
-		                if (n1 == -1 || n2 == -1) return n1 == n2;
+		                ch1.read(buf1);
+		                ch2.read(buf2);
+		                int n1 = buf1.position();
+		                int n2 = buf2.position();
+		                
+		                if (n1 == 0 || n2 == 0) return n1 == n2;
 
 		                buf1.flip();
 		                buf2.flip();
@@ -292,7 +313,10 @@ public class IntegrationTest {
 		    }
 		    @Override
 		    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+				TestUtils.startTime("CopyDirectoryResolve", "group");
+
 		    	final Path p1 = toPath.resolve(fromPath.relativize(dir).toString());
+				TestUtils.endTime("CopyDirectoryResolve");
 		        if(!Files.exists(p1)){
 		            Files.createDirectory(p1);
 		        }
@@ -301,7 +325,9 @@ public class IntegrationTest {
 
 		    @Override
 		    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+				TestUtils.startTime("CopyFilesResolve", "group");
 		    	final Path p1 = toPath.resolve(fromPath.relativize(file).toString());
+				TestUtils.endTime("CopyFilesResolve");
 				FileSystemProviderEncrypted fpe1 = new FileSystemProviderEncrypted();
 				fpe1.copy(file, p1, copyOption);
 //		        Files.copy(file, p1, copyOption);
@@ -317,7 +343,9 @@ public class IntegrationTest {
 			TestUtils.deleteFolderContents(f);
 	}
 	
-	final String [] TEST_FILES = new String [] {
+	final String [] TEST_FILES = new String [] {"./1.txt", "200"
+			/*
+			
 			"./ujsl9Jw7G/wW/v/5/doKsk0HC/XGfUt4Y", "58724", 
 			"./ujsl9Jw7G/wW/v/5/doKsk0HC/D4LHx", "36085", 
 			"./ujsl9Jw7G/wW/v/5/doKsk0HC/6Cqn2sQ", "6839", 
@@ -516,7 +544,8 @@ public class IntegrationTest {
 			"./FdzGGAI1R/f/Kdne/PUdIN/7WKWYb4Qq/0ZK8by/VSiR5/XA/VrDOB3", "31261", 
 			"./FdzGGAI1R/f/Kdne/PUdIN/7WKWYb4Qq/0ZK8by/VSiR5/XA/7e4qkKq", "62771", 
 			"./FdzGGAI1R/f/Kdne/PUdIN/7WKWYb4Qq/0ZK8by/VSiR5/XA/3DmzBss", "85854", 
-			"./FdzGGAI1R/f/Kdne/PUdIN/7WKWYb4Qq/0ZK8by/VSiR5/XA/1u2X", "97314" 
+			"./FdzGGAI1R/f/Kdne/PUdIN/7WKWYb4Qq/0ZK8by/VSiR5/XA/1u2X", "97314", 
+			"./FdzGGAI1R/f/Kdne/PUdIN/7WKWYb4Qq/0ZK8by/VSiR5/XA/1u2X2", "97314"*/ 
 	};
 	
 //	http://docs.oracle.com/javase/7/docs/technotes/guides/security/StandardNames.html#Cipher
