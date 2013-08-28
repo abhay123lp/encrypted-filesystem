@@ -608,12 +608,13 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			int lenEnd = src.remaining();
 			src.get(decBlock, 0, lenEnd);
 			positionInternal(mDecPos + lenEnd);
-			try {
-				saveBlock(mDecPos - 1, BlockOperationOptions.STOPONPOSITIONERROR);//fixed to mDecPos - 1 28/07/2013
-			} catch (GeneralSecurityException e) {
-				//Do nothing as it was optional to keep under channel updated
-				mIsDecFlushed = false;
-			}
+			if (lenEnd != 0)//have to do border condition, otherwise will spend time for extra write
+				try {
+					saveBlock(mDecPos - 1, BlockOperationOptions.STOPONPOSITIONERROR);//fixed to mDecPos - 1 28/07/2013
+				} catch (GeneralSecurityException e) {
+					//Do nothing as it was optional to keep under channel updated
+					mIsDecFlushed = false;
+				}
 			return len;
 		}
 	}
