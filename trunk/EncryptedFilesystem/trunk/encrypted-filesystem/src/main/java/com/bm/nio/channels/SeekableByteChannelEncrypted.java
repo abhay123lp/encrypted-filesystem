@@ -50,7 +50,12 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
     private final int encBlockSize;
     private long mDecPos = 0;
     private long mDecSize = 0;
-    private boolean mIsDecFlushed = true;
+    //changes to false when writing is not completed (writen to buffer but not flushed to disk)
+    // and to true when saving current block
+    private boolean mIsDecFlushed = true; //if current bloch was flushed to under channel
+    // if current block was loaded from under channel
+    // changes to false when changing Decrypted position and to true when loading current block
+    private boolean mIsDecCached = false;
     //===
     Cipher encipher;
     Cipher decipher;
@@ -381,6 +386,7 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 //				mChannel.position(posEnc);
 //			} catch (UnsupportedOperationException e) {
 //			}
+			mIsDecCached = true;
 			return dec.length;
 		}
 	}
@@ -464,6 +470,7 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 					mChannel.write(buf);
 				}
 			}
+			mIsDecFlushed = true;			
 			return len;
 		}
 	}
@@ -554,6 +561,9 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 	}
 	
 	private void positionInternal(long newPosition){
+		if (getBlockNum(mDecPos, decBlockSize) != getBlockNum(newPosition, decBlockSize)){ 
+			mIsDecCached = false;
+		}
 		mDecPos = newPosition;
 		if (mDecPos > mDecSize)
 			mDecSize = mDecPos;
@@ -563,7 +573,7 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 	public int write(ByteBuffer src) throws IOException {
 		checkOpen();
 		synchronized (mLock) {
-			mIsDecFlushed = true;
+//			mIsDecFlushed = true;
 			int blockPos = getBlockPos(mDecPos, decBlockSize);
 			int remains = decBlockSize - blockPos;
 			final int len = src.remaining();
@@ -632,7 +642,8 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 		synchronized (mLock) {
 			final long decPosStart = mDecPos;
 			try {
-				loadBlock(mDecPos, BlockOperationOptions.STOPONPOSITIONERROR);//may cause low performance! (pt. 16.3.4.1)
+				if (!mIsDecCached)
+					loadBlock(mDecPos, BlockOperationOptions.STOPONPOSITIONERROR);//may cause low performance! (pt. 16.3.4.1)
 			} catch (GeneralSecurityException e) {
 				//Do nothing as it was optional fill buffer at any read operation 
 			}
@@ -741,7 +752,8 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			if (newBlockPos == 0){
 			//if (getEncAmt(newBlockPos) == newBlockPos || newBlockPos == 0){
 				mDecSize = size;
-				mDecPos = size;
+				positionInternal(size);
+//				mDecPos = size;
 				mChannel.truncate(posEnc + newBlockPos);
 				return this;
 			}
@@ -763,7 +775,8 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			
 			//put dec position and size to the end of last block
 			mDecSize = posDec + decBlockSize;
-			mDecPos = mDecSize;
+			positionInternal(mDecSize);
+//			mDecPos = mDecSize;
 			//read block... 
 			try {
 				loadBlock(mDecPos);
@@ -774,7 +787,8 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			}
 			// ... truncate ... 
 			mDecSize = size;
-			mDecPos = size;
+			positionInternal(size);
+//			mDecPos = size;
 			// ...and save back
 			try {
 				saveBlock(mDecPos);
@@ -803,7 +817,7 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 				ie.initCause(e);
 				throw ie;
 			}
-			mIsDecFlushed = true;
+//			mIsDecFlushed = true;
 			
 			mChannel.close();
 			remove(mChannel);
