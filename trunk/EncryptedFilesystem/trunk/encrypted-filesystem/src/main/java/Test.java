@@ -59,9 +59,11 @@ import org.simpleframework.xml.stream.Format;
 
 import sun.nio.fs.WindowsFileSystemProvider;
 
+import com.bm.nio.file.ConfigEncrypted;
 import com.bm.nio.file.FileAttributesEncrypted;
 import com.bm.nio.file.IntegrationTest;
 import com.bm.nio.file.PathEncrypted;
+import com.bm.nio.file.utils.TestUtils;
 import com.sun.nio.zipfs.ZipFileSystem;
 import com.sun.nio.zipfs.ZipFileSystemProvider;
 import com.sun.nio.zipfs.ZipPath;
@@ -88,9 +90,30 @@ public class Test {
 		//System.out.println(new String(new byte [] {50, 49, 69, 69, 70, 50, 69, 66, 47, 50, 48, 69, 70, 70, 51, 69, 65, 47}));
 		//new Test().test2Methods();
 		//new Test().testBarrier();
-		System.out.println(Paths.get("").relativize(Paths.get("1.txt")));
-		System.out.println(Paths.get("").toAbsolutePath().relativize(Paths.get("1.txt").toAbsolutePath()));
+//		System.out.println(Paths.get("").relativize(Paths.get("1.txt")));
+//		System.out.println(Paths.get("").toAbsolutePath().relativize(Paths.get("1.txt").toAbsolutePath()));
+		
+//		ConfigEncrypted ce = new ConfigEncrypted();
+//		TestUtils.startTime("test");
+//		for (int i = 0; i < 10000; i ++){
+//			ConfigEncrypted ce1 = ConfigEncrypted.newConfig(ce);
+////			if (!ce1.equals(ce))
+////				throw new Exception();
+//		}
+//		TestUtils.endTime("test");
+//		System.out.println(TestUtils.printTime("test"));
+		
 		new IntegrationTest().testCopy();
+
+//		ConfigEncrypted ce = new ConfigEncrypted();
+//		Cipher c = ce.newCiphers("123".toCharArray()).getDecipher();
+//		byte [] data = new byte [90000000];
+//		long l = System.currentTimeMillis();
+//		c.doFinal(data);
+//		c.doFinal(data);
+//		l = System.currentTimeMillis() - l;
+//		System.out.println(l);
+		
 	}
 	
 	public void testStartsForZip() throws Exception{
