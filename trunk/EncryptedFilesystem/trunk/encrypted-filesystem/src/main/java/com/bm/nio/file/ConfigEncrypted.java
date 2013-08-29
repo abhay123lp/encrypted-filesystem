@@ -1,6 +1,5 @@
 package com.bm.nio.file;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -67,14 +66,19 @@ public class ConfigEncrypted {
 			getSerializer().read(this, is);
 	}
 	
+	
 	public static ConfigEncrypted newConfig(ConfigEncrypted config) {
 		ConfigEncrypted res = new ConfigEncrypted();
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		Persister serializer = getSerializer();
 		try {
-			serializer.write(config, out);
-			serializer.read(res,
-					new ByteArrayInputStream(out.toByteArray()));
+			res.blockSize = config.blockSize;
+			res.iterationCount = config.iterationCount;
+			res.keyStrength = config.keyStrength;
+			res.macFiles = config.macFiles;
+			res.macNames = config.macNames;
+			res.provider = config.provider;
+			res.salt = config.salt;
+			res.transformation = config.transformation;
+			res.version = config.version;
 		} catch (Exception e) {
 			final RuntimeException rte = new RuntimeException(
 					"Unable to copy values");
@@ -84,37 +88,72 @@ public class ConfigEncrypted {
 		return res;
 	}
 
-	@Override
-	public boolean equals(Object obj) {
-		if (super.equals(obj))
-			return true;
-		final Persister serializer = getSerializer();
-		final ByteArrayOutputStream b1 = new ByteArrayOutputStream();
-		final ByteArrayOutputStream b2 = new ByteArrayOutputStream();
-		try {
-			serializer.write(this, b1);
-			serializer.write(obj, b2);
-		} catch (Exception e) {
-			return false;
-		}
-		final String s1 = b1.toString();
-		final String s2 = b2.toString();
-		return s1.equals(s2);
-	}
-	
+	/* (non-Javadoc)
+	 * @see java.lang.Object#hashCode()
+	 */
 	@Override
 	public int hashCode() {
-		final Persister serializer = getSerializer();
-		final ByteArrayOutputStream b1 = new ByteArrayOutputStream();
-		try {
-			serializer.write(this, b1);
-		} catch (Exception e) {
-			return 0;
-		}
-		final String s1 = b1.toString();
-		return s1.hashCode();
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + blockSize;
+		result = prime * result + iterationCount;
+		result = prime * result + keyStrength;
+		result = prime * result + (macFiles ? 1231 : 1237);
+		result = prime * result + (macNames ? 1231 : 1237);
+		result = prime * result
+				+ ((provider == null) ? 0 : provider.hashCode());
+		result = prime * result + ((salt == null) ? 0 : salt.hashCode());
+		result = prime * result
+				+ ((transformation == null) ? 0 : transformation.hashCode());
+		result = prime * result + ((version == null) ? 0 : version.hashCode());
+		return result;
 	}
-	
+
+	/* (non-Javadoc)
+	 * @see java.lang.Object#equals(java.lang.Object)
+	 */
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ConfigEncrypted other = (ConfigEncrypted) obj;
+		if (blockSize != other.blockSize)
+			return false;
+		if (iterationCount != other.iterationCount)
+			return false;
+		if (keyStrength != other.keyStrength)
+			return false;
+		if (macFiles != other.macFiles)
+			return false;
+		if (macNames != other.macNames)
+			return false;
+		if (provider == null) {
+			if (other.provider != null)
+				return false;
+		} else if (!provider.equals(other.provider))
+			return false;
+		if (salt == null) {
+			if (other.salt != null)
+				return false;
+		} else if (!salt.equals(other.salt))
+			return false;
+		if (transformation == null) {
+			if (other.transformation != null)
+				return false;
+		} else if (!transformation.equals(other.transformation))
+			return false;
+		if (version == null) {
+			if (other.version != null)
+				return false;
+		} else if (!version.equals(other.version))
+			return false;
+		return true;
+	}
+
 	public void loadConfig(Path path) throws IOException {
 		try (InputStream is = Files.newInputStream(path, StandardOpenOption.READ);){
 			try {

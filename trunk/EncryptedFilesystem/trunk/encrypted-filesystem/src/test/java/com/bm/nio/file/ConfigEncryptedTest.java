@@ -1,8 +1,10 @@
 package com.bm.nio.file;
 
+import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 
 import junit.framework.Assert;
 
@@ -35,8 +37,23 @@ public class ConfigEncryptedTest {
 		ce.setTransformation(ce.getTransformation() + 1);
 		ce.loadConfig(configPath);
 		Assert.assertEquals(ceTemplate, ce);
+		// check save data 
+		final ByteArrayOutputStream b1 = new ByteArrayOutputStream();
+		final ByteArrayOutputStream b2 = new ByteArrayOutputStream();
+		ceTemplate.saveConfig(b1);
+		ce.saveConfig(b2);
+		Assert.assertTrue(Arrays.equals(b1.toByteArray(), b2.toByteArray()));
+		//
+		
 		ce.setProvider(ce.getProvider() + 1);
 		Assert.assertNotSame(ceTemplate, ce);
+		
+		// check save data
+		b1.reset(); b2.reset();
+		ceTemplate.saveConfig(b1);
+		ce.saveConfig(b2);
+		Assert.assertFalse(Arrays.equals(b1.toByteArray(), b2.toByteArray()));
+		//
 	}
 	
 	@Test
