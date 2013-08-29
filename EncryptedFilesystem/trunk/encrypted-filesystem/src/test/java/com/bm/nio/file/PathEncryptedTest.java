@@ -492,12 +492,16 @@ public class PathEncryptedTest {
 	
 	@Test
 	public void testZip() throws Exception {
-		//test basic toString function
-		URI u = URI.create("encrypted:jar:file:/1.zip!/");
 		Map<String, Object> env = TestUtils.newEnv();
 		env.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CREATE_UNDERLYING_FILE_SYSTEM, true);
 		env.put("create", "true");
-		FileSystem fsEnc = FileSystems.newFileSystem(u, env);
+		
+		Path pathZipFile = TestUtils.newTempDir(TestUtils.SANDBOX_PATH + "/testZip").toPath().resolve("1.zip");
+		String pathZip = pathZipFile.toUri().getPath() + "!/";
+
+		FileSystems.newFileSystem(URI.create("jar:file://" + pathZip), env);
+		FileSystem fsEnc = FileSystems.newFileSystem(URI.create("encrypted:jar:file://" + pathZip), env);
+
 		Path dirs = fsEnc.getPath(".", "dir2", "dir3");
 		Path d1 = Files.createDirectories(dirs);
 		Assert.assertEquals(d1.toString(), "/./dir2/dir3");
