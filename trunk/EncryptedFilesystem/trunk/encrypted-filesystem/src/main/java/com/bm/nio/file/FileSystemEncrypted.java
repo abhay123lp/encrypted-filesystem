@@ -32,6 +32,7 @@ import javax.crypto.spec.SecretKeySpec;
 import sun.nio.fs.WindowsFileSystemProvider;
 
 import com.bm.nio.channels.SeekableByteChannelEncrypted;
+import com.bm.nio.file.ConfigEncrypted.Ciphers;
 import com.bm.nio.utils.CipherUtils;
 import com.sun.nio.zipfs.ZipFileSystem;
 
@@ -76,6 +77,7 @@ public class FileSystemEncrypted extends FileSystem {
 		 * Value Type: {@link char []} 
 		 */
 		public static final String ENV_PASSWORD = "env.password";
+		public static final String ENV_CIPHERS = "env.ciphers";
 	}
 	
 	private String configFile = "config.xml";
@@ -150,7 +152,6 @@ public class FileSystemEncrypted extends FileSystem {
 				pwd = (char []) envPwd;
 			}
 		}
-//		this.pwd = pwd;
 		//
 //		if (envConfFile != null && envConf != null)
 //			throw new IllegalArgumentException(
@@ -179,22 +180,17 @@ public class FileSystemEncrypted extends FileSystem {
 		return res;
 	}
 	
-//	protected void loadConfig() {
-//		Properties p;
-//		try (OutputStream os = Files.newOutputStream(configPath, StandardOpenOption.WRITE);){
-//			p = new Properties();
-//			p.setProperty("123", "value");
-//			p.store(os, null);
-//		} catch (IOException e) {
-//			return;
-//		}
-//		final String PROPERTY_TRANSFORMATION = "transformation";
-//		final String PROPERTY_SALT = "salt";
-//		final String PROPERTY_KEY_STRENGTH = "keystrength";
-//		final String PROPERTY_ITERATION_COUNT = "iterationcount";
-//		final String PROPERTY_BLOCK_SIZE = "blocksize";
-//		p.getProperty(PROPERTY_TRANSFORMATION);
-//	}
+	/**
+	 * Creates new ciphers or get one from cache
+	 * @param config
+	 * @param key
+	 * @return
+	 * @throws GeneralSecurityException
+	 */
+	protected static Ciphers getCiphers(ConfigEncrypted config, SecretKeySpec key) throws GeneralSecurityException{
+		//TODO:
+		return config.newCiphers(key);
+	}
 	
 	/**
 	 * @param uri - underlying uri, i.e. file://D:/enc1/F11A
@@ -315,11 +311,11 @@ public class FileSystemEncrypted extends FileSystem {
 	}
 	
 	private String encryptName(String plainName) throws GeneralSecurityException {
-		return CipherUtils.encryptName(plainName, config.newCiphers(key).getEncipher());
+		return CipherUtils.encryptName(plainName, getCiphers(config, key).getEncipher());
 	}
 	
 	private String decryptName(String encName) throws GeneralSecurityException {
-		return CipherUtils.decryptName(encName, config.newCiphers(key).getDecipher());
+		return CipherUtils.decryptName(encName, getCiphers(config, key).getDecipher());
 	}
 
 
@@ -334,7 +330,8 @@ public class FileSystemEncrypted extends FileSystem {
 				Map<String, Object> props = new HashMap<String, Object>();
 				//DONE: 5.5.6. Add password or cipher to parameters. 
 				props.put(FileSystemEncryptedEnvParams.ENV_CONFIG, config);
-				props.put(FileSystemEncryptedEnvParams.ENV_PASSWORD, this.key);
+//				props.put(FileSystemEncryptedEnvParams.ENV_PASSWORD, this.key);
+				props.put(FileSystemEncryptedEnvParams.ENV_CIPHERS, getCiphers(config, key));
 				ch = SeekableByteChannelEncrypted.newChannel(uch, props);//DONE: pass config encrypted
 			}
 			if (options.contains(StandardOpenOption.APPEND))
