@@ -7,6 +7,7 @@ import java.lang.annotation.Target;
 import java.lang.reflect.Method;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import javax.crypto.Cipher;
 import com.bm.nio.utils.impl.CipherUtilsImplStandard;
@@ -25,20 +26,38 @@ public class CipherUtils {
 	 * @author Mike
 	 */
 	public interface CipherUtilsImpl{
-		@OverrideRequired
+		@OverrideRequired(group="common")
 	    public byte [] decryptBlockImpl(Cipher decipher, byte [] bufEnc, int start, int len) throws GeneralSecurityException;
-		@OverrideRequired
+		@OverrideRequired(group="common")
 	    public byte [] encryptBlockImpl(Cipher encipher, byte [] bufPlain, int start, int len) throws GeneralSecurityException;
-		@OverrideRequired
+		@OverrideRequired(group="common")
 	    public int getEncAmtImpl(Cipher encipher, int decAmt);
 	    //name
+		@OverrideRequired(group="nameEncrypt")
 	    public String encryptNameImpl(String plainName, Cipher encipher) throws GeneralSecurityException;
-	    public String decryptName(String encName, Cipher decipher) throws GeneralSecurityException;
+		@OverrideRequired(group="nameEncrypt")
+	    public String decryptNameImpl(String encName, Cipher decipher) throws GeneralSecurityException;
+	    /**
+	     * Encode from binary to string, so can be used in file names for example.
+	     * Should be implemented together with {@link CipherUtilsImpl#decodeName(String)}
+	     * @param name
+	     * @return
+	     */
+		@OverrideRequired(group="nameEncode")
+	    public String encodeName(byte [] name);
+	    /**
+	     * decode from encoded string to binary. Should be implemented together with {@link CipherUtilsImpl#encodeName(byte[])}
+	     * @param name
+	     * @return
+	     */
+		@OverrideRequired(group="nameEncode")
+	    public byte [] decodeName(String name);
 	}
 
 	@Target(ElementType.METHOD)
 	@Retention(RetentionPolicy.RUNTIME)
 	@interface OverrideRequired{
+		String group() default "default";
 	}
 	
 	private static boolean isImplSet = false;
@@ -53,39 +72,60 @@ public class CipherUtils {
 			if (isImplSet)
 				throw new CipherUtilsImplException(CipherUtilsImpl.class.getSimpleName() + " was already set before");
 
-			String requiredStr = "";
-			try {
-				final Method [] methodsTmp = CipherUtilsImpl.class.getMethods();
-				ArrayList<Method> methods = new ArrayList<Method>();
-				for(int i = 0; i < methodsTmp.length - 1; i ++){
-					if (methodsTmp[i].getAnnotation(OverrideRequired.class) != null){
-						methods.add(methodsTmp[i]);
-						requiredStr += methodsTmp[i].getName() + " ";
-					}
-				}
-
+			HashMap<String, ArrayList<Method>> groups = getGroups(CipherUtilsImpl.class);
 				// check required methods
-				for(int i = 0; i < methods.size() - 1; i ++){
-					if (!impl.getClass()
-							.getMethod(methods.get(i).getName(), methods.get(i).getParameterTypes())
-							.getDeclaringClass()
-							.equals(impl.getClass().getMethod(methods.get(i + 1).getName(), methods.get(i + 1).getParameterTypes())
-									.getDeclaringClass()))
+				for (ArrayList<Method> methods : groups.values()){
+					if (!isAllOrNoneOverriden(methods, impl))
 						throw new CipherUtilsImplException(
 								impl.getClass().getSimpleName()
-										+ " class should implement " + requiredStr + " methods of interface "
+										+ " class should implement " + getRequiredStr(methods) + " methods of interface "
 										+ CipherUtilsImpl.class.getSimpleName());
-				}
-			} catch (SecurityException e) {
-			} catch (NoSuchMethodException e) {
-				throw new CipherUtilsImplException(
-						impl.getClass().getSimpleName()
-								+ " class should implement " + requiredStr + "methods of interface "
-								+ CipherUtilsImpl.class.getSimpleName());
 			}
 			isImplSet = true;
 			CipherUtils.impl = impl;
 		}
+	}
+	
+	private static String getRequiredStr(ArrayList<Method> methods){
+		String res = "";
+		for(int i = 0; i < methods.size() - 1; i ++){
+			res += methods.get(i).getName() + " ";
+		}
+		return res;
+	}
+	
+	private static HashMap<String, ArrayList<Method>> getGroups(Class cl){
+		HashMap<String, ArrayList<Method>> groups = new HashMap<String, ArrayList<Method>>();
+		final Method [] methodsTmp = cl.getMethods();
+		for(int i = 0; i < methodsTmp.length; i ++){
+			final OverrideRequired required = methodsTmp[i].getAnnotation(OverrideRequired.class);
+			if (required != null){
+				ArrayList<Method> group = groups.get(required.group());
+				if (group == null){
+					group = new ArrayList<Method>();
+					groups.put(required.group(), group);
+				}
+				group.add(methodsTmp[i]);
+			}
+		}
+		return groups;
+	}
+	
+	private static boolean isAllOrNoneOverriden(ArrayList<Method> methods, Object obj){
+		try {
+			for(int i = 0; i < methods.size() - 1; i ++){
+				if (!obj.getClass()
+						.getMethod(methods.get(i).getName(), methods.get(i).getParameterTypes())
+						.getDeclaringClass()
+						.equals(obj.getClass().getMethod(methods.get(i + 1).getName(), methods.get(i + 1).getParameterTypes())
+								.getDeclaringClass()))
+					return false;
+			}
+		} catch (SecurityException e) {
+		} catch (NoSuchMethodException e) {
+			return false;
+		}
+		return true;
 	}
 	
 	public static void resetImpl() {
@@ -125,6 +165,6 @@ public class CipherUtils {
 	}
 	
 	public static String decryptName(String encName, Cipher decipher) throws GeneralSecurityException {
-		return impl.decryptName(encName, decipher);
+		return impl.decryptNameImpl(encName, decipher);
 	}
 }

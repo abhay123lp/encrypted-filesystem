@@ -30,6 +30,14 @@ public class CipherUtilsTest {
 
 	}
 	
+	static class ImplIncorrect1 extends CipherUtilsImplStandard {
+
+		@Override
+		public String encodeName(byte[] name) {
+			return super.encodeName(name);
+		}
+	}
+	
 	static class ImplCorrect extends ImplIncorrect {
 
 		@Override
@@ -62,6 +70,17 @@ public class CipherUtilsTest {
 		} catch (CipherUtilsImplException e) {
 			exception = true;
 		}
+		Assert.assertTrue(exception);
+		
+		// not all required methods are overriden
+		exception = false;
+		try {
+			CipherUtils.setImpl(new ImplIncorrect1());
+		} catch (CipherUtilsImplException e) {
+			exception = true;
+		}
+
+		
 		Assert.assertTrue(exception);
 		
 		//correctly override all required methods
