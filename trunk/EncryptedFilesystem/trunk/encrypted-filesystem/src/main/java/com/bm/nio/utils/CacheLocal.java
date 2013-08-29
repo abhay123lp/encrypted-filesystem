@@ -1,20 +1,31 @@
 package com.bm.nio.utils;
 
-public class CacheLocal <T> {
+public class CacheLocal <T> extends ThreadLocal<T> {
 
-	public interface CachingObjectCreator <T> {
-		public T create();
-	}
+//	public interface CachingObjectCreator <T> {
+//		public T create();
+//	}
+//	
+//	private CachingObjectCreator<T> cachingObjectCreator;
+//	
+//	public CacheLocal(CachingObjectCreator<T> cachingObjectCreator){
+//		this.cachingObjectCreator = cachingObjectCreator;
+//	}
+//	
+//	private static class ThreadLocalCache<T> extends ThreadLocal<T>{
+//		
+//	}
+//	
+//	private ThreadLocalCache<T> cache = new ThreadLocalCache<T>();
+//	
+//	public T getCachedObject(){
+//		return cachingObjectCreator.create();
+//	}
 	
-	private CachingObjectCreator<T> cachingObjectCreator;
-	
-	public void init(CachingObjectCreator<T> cachingObjectCreator){
-		this.cachingObjectCreator = cachingObjectCreator;
-	}
-	
-	public T getCachedObject(){
+	@Override
+	public T get() {
 		//TODO:
-		return cachingObjectCreator.create();
+		return initialValue();
 	}
 	
 }

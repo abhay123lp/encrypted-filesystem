@@ -34,7 +34,6 @@ import sun.nio.fs.WindowsFileSystemProvider;
 import com.bm.nio.channels.SeekableByteChannelEncrypted;
 import com.bm.nio.file.ConfigEncrypted.Ciphers;
 import com.bm.nio.utils.CacheLocal;
-import com.bm.nio.utils.CacheLocal.CachingObjectCreator;
 import com.bm.nio.utils.CipherUtils;
 import com.sun.nio.zipfs.ZipFileSystem;
 
@@ -186,10 +185,9 @@ public class FileSystemEncrypted extends FileSystem {
 	}
 	
 	private static CacheLocal<Ciphers> initCiphersCache(final ConfigEncrypted config, final SecretKeySpec key){
-		CacheLocal<Ciphers> ciphers = new CacheLocal<Ciphers>();
-		CachingObjectCreator<Ciphers> coc = new CachingObjectCreator<Ciphers>() {
+		CacheLocal<Ciphers> ciphers = new CacheLocal<Ciphers>(){
 			@Override
-			public Ciphers create() {
+			protected Ciphers initialValue() {
 				try {
 					return config.newCiphers(key);
 				} catch (GeneralSecurityException e) {
@@ -197,7 +195,6 @@ public class FileSystemEncrypted extends FileSystem {
 				}
 			}
 		};
-		ciphers.init(coc);
 		return ciphers;
 	}
 	
@@ -320,11 +317,11 @@ public class FileSystemEncrypted extends FileSystem {
 	}
 	
 	private String encryptName(String plainName) throws GeneralSecurityException {
-		return CipherUtils.encryptName(plainName, ciphers.getCachedObject().getEncipher());
+		return CipherUtils.encryptName(plainName, ciphers.get().getEncipher());
 	}
 	
 	private String decryptName(String encName) throws GeneralSecurityException {
-		return CipherUtils.decryptName(encName, ciphers.getCachedObject().getDecipher());
+		return CipherUtils.decryptName(encName, ciphers.get().getDecipher());
 	}
 
 
@@ -340,7 +337,7 @@ public class FileSystemEncrypted extends FileSystem {
 				//DONE: 5.5.6. Add password or cipher to parameters. 
 				props.put(FileSystemEncryptedEnvParams.ENV_CONFIG, config);
 //				props.put(FileSystemEncryptedEnvParams.ENV_PASSWORD, this.key);
-				props.put(FileSystemEncryptedEnvParams.ENV_CIPHERS, ciphers.getCachedObject());
+				props.put(FileSystemEncryptedEnvParams.ENV_CIPHERS, ciphers.get());
 				ch = SeekableByteChannelEncrypted.newChannel(uch, props);//DONE: pass config encrypted
 			}
 			if (options.contains(StandardOpenOption.APPEND))
