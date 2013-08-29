@@ -66,20 +66,30 @@ public class CipherUtilsImplStandard implements CipherUtilsImpl {
 		//throw new IllegalArgumentException();
 		//base64 contains "/" symbol!
 		//final String res = DatatypeConverter.printBase64Binary(encryptBlock(encipher, plainName.getBytes()));
-		final String res = DatatypeConverter.printHexBinary(CipherUtils.encryptBlock(encipher, plainName.getBytes()));
+		
+		final String res = encodeName(CipherUtils.encryptBlock(encipher, plainName.getBytes()));
 		//encode
 		return res;
 		//return plainName;
 	}
 
 	@Override
-	public String decryptName(String encName, Cipher decipher)
+	public String decryptNameImpl(String encName, Cipher decipher)
 			throws GeneralSecurityException {
 		//TODO: consider using MAC
 		//base64 contains "/" symbol!
-		final String res = new String(CipherUtils.decryptBlock(decipher, DatatypeConverter.parseHexBinary(encName)));
+		
+		final String res = new String(CipherUtils.decryptBlock(decipher, decodeName(encName)));
 		return res;
 		//return encName;
+	}
+	@Override
+	public String encodeName(byte [] name) {
+		return DatatypeConverter.printHexBinary(name);
+	}
+	@Override
+	public byte [] decodeName(String name) {
+		return DatatypeConverter.parseHexBinary(name);
 	}
 	
 }
