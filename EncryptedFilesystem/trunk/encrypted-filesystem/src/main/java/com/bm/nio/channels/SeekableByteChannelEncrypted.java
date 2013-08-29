@@ -130,9 +130,10 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 	}
 	
     protected void initProps(Map<String, ?> props) throws GeneralSecurityException{
-    	final Object envConfig, envPwd;
+    	final Object envConfig, envPwd, envCiphers;
     	envConfig = props.get(FileSystemEncryptedEnvParams.ENV_CONFIG);
 		envPwd = props.get(FileSystemEncryptedEnvParams.ENV_PASSWORD);
+		envCiphers = props.get(FileSystemEncryptedEnvParams.ENV_CIPHERS);
 		final char [] pwd;
 		final SecretKeySpec key;
 		final Ciphers c;
@@ -141,24 +142,23 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
     	else
     		mConfig = new ConfigEncrypted();
 		
-		if (envPwd == null){
-			throw new IllegalArgumentException("Parameter " + FileSystemEncryptedEnvParams.ENV_PASSWORD + " must be present");
-		} else{
-			if (!(envPwd instanceof char [])){
-				if (!(envPwd instanceof SecretKeySpec)){
-					throw new IllegalArgumentException("Parameter " + FileSystemEncryptedEnvParams.ENV_PASSWORD + " must be type of " + (new char [0]).getClass().getSimpleName() + " or " + SecretKeySpec.class.getSimpleName());
-				} else{
-//					key = (SecretKeySpec) envPwd;
-					c = mConfig.newCiphers((SecretKeySpec) envPwd);
+		if (envCiphers != null){
+			if (envCiphers instanceof Ciphers){
+				c = (Ciphers)envCiphers;
+			} else {
+					throw new IllegalArgumentException("Parameter " + FileSystemEncryptedEnvParams.ENV_CIPHERS + " must be type of " + (new char [0]).getClass().getSimpleName() + " or " + Ciphers.class.getSimpleName());
 				}
-			} else{
-//				pwd = (char []) envPwd;
+		} else if (envPwd != null){
+			if (envPwd instanceof char []){
 				c = mConfig.newCiphers((char []) envPwd);
-			}
-		}
-    	
-    	
-//    	final Ciphers c = mConfig.newCiphers(pwd);
+			} else if (envPwd instanceof SecretKeySpec){
+					c = mConfig.newCiphers((SecretKeySpec) envPwd);
+			} else {
+					throw new IllegalArgumentException("Parameter " + FileSystemEncryptedEnvParams.ENV_PASSWORD + " must be type of " + (new char [0]).getClass().getSimpleName() + " or " + SecretKeySpec.class.getSimpleName());
+				}
+		} else
+			throw new IllegalArgumentException("Parameter " + FileSystemEncryptedEnvParams.ENV_CIPHERS + " or " + FileSystemEncryptedEnvParams.ENV_PASSWORD + " must be present");
+		
     	encipher = c.getEncipher();
     	decipher = c.getDecipher();
     }
