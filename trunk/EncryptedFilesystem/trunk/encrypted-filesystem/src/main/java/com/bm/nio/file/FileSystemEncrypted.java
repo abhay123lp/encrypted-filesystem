@@ -33,6 +33,8 @@ import sun.nio.fs.WindowsFileSystemProvider;
 
 import com.bm.nio.channels.SeekableByteChannelEncrypted;
 import com.bm.nio.file.ConfigEncrypted.Ciphers;
+import com.bm.nio.utils.CacheLocal;
+import com.bm.nio.utils.CacheLocal.CachingObjectCreator;
 import com.bm.nio.utils.CipherUtils;
 import com.sun.nio.zipfs.ZipFileSystem;
 
@@ -86,6 +88,8 @@ public class FileSystemEncrypted extends FileSystem {
 	//TODO: 14. consider taking PWD every time as a parameter
 	//char [] pwd;
 	SecretKeySpec key;
+	CacheLocal<Ciphers> ciphers;
+	
 	/**
 	 * @param provider
 	 * @param path - path of underlying filesystem, i.e. D:/enc1
@@ -176,20 +180,25 @@ public class FileSystemEncrypted extends FileSystem {
 			Files.createFile(configPath);
 			res.saveConfig(configPath);
 		}
-		this.key = config.newSecretKeySpec(pwd);
+		this.key = res.newSecretKeySpec(pwd);
+		ciphers = initCiphersCache(res, key);
 		return res;
 	}
 	
-	/**
-	 * Creates new ciphers or get one from cache
-	 * @param config
-	 * @param key
-	 * @return
-	 * @throws GeneralSecurityException
-	 */
-	protected static Ciphers getCiphers(ConfigEncrypted config, SecretKeySpec key) throws GeneralSecurityException{
-		//TODO:
-		return config.newCiphers(key);
+	private static CacheLocal<Ciphers> initCiphersCache(final ConfigEncrypted config, final SecretKeySpec key){
+		CacheLocal<Ciphers> ciphers = new CacheLocal<Ciphers>();
+		CachingObjectCreator<Ciphers> coc = new CachingObjectCreator<Ciphers>() {
+			@Override
+			public Ciphers create() {
+				try {
+					return config.newCiphers(key);
+				} catch (GeneralSecurityException e) {
+					return null;
+				}
+			}
+		};
+		ciphers.init(coc);
+		return ciphers;
 	}
 	
 	/**
@@ -311,11 +320,11 @@ public class FileSystemEncrypted extends FileSystem {
 	}
 	
 	private String encryptName(String plainName) throws GeneralSecurityException {
-		return CipherUtils.encryptName(plainName, getCiphers(config, key).getEncipher());
+		return CipherUtils.encryptName(plainName, ciphers.getCachedObject().getEncipher());
 	}
 	
 	private String decryptName(String encName) throws GeneralSecurityException {
-		return CipherUtils.decryptName(encName, getCiphers(config, key).getDecipher());
+		return CipherUtils.decryptName(encName, ciphers.getCachedObject().getDecipher());
 	}
 
 
@@ -331,7 +340,7 @@ public class FileSystemEncrypted extends FileSystem {
 				//DONE: 5.5.6. Add password or cipher to parameters. 
 				props.put(FileSystemEncryptedEnvParams.ENV_CONFIG, config);
 //				props.put(FileSystemEncryptedEnvParams.ENV_PASSWORD, this.key);
-				props.put(FileSystemEncryptedEnvParams.ENV_CIPHERS, getCiphers(config, key));
+				props.put(FileSystemEncryptedEnvParams.ENV_CIPHERS, ciphers.getCachedObject());
 				ch = SeekableByteChannelEncrypted.newChannel(uch, props);//DONE: pass config encrypted
 			}
 			if (options.contains(StandardOpenOption.APPEND))
