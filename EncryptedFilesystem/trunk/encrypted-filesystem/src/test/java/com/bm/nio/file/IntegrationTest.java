@@ -15,9 +15,12 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.security.GeneralSecurityException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+
+import javax.crypto.Cipher;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -26,6 +29,9 @@ import org.junit.Test;
 import com.bm.nio.channels.SeekableByteChannelEncrypted;
 import com.bm.nio.file.utils.TestUtils;
 import com.bm.nio.utils.CipherUtils;
+import com.bm.nio.utils.CipherUtils.CipherUtilsImpl;
+import com.bm.nio.utils.impl.CipherUtilsImplFast;
+import com.bm.nio.utils.impl.CipherUtilsImplStandard;
 
 public class IntegrationTest {
 	private final FileSystemProviderEncrypted mFspe = TestUtils.getEncryptedProvider();
@@ -41,6 +47,11 @@ public class IntegrationTest {
 			TestUtils.deleteFolderContents(f);
 	}
 
+//	@Test
+//	public void testCopy(){
+//		System.out.println(System.getProperty("java.version"));
+//	}
+	
 	@Test
 	public void testCopy() throws Exception {
 		generateTestFiles(TEST_COPY_SRC);
@@ -62,7 +73,7 @@ public class IntegrationTest {
 		Random r = new Random();
 		for (int i = 0; i < TEST_FILES.length; i +=2){
 			String name = TEST_FILES[i];
-			int len = Integer.valueOf(TEST_FILES[i + 1]) * 1;
+			int len = Integer.valueOf(TEST_FILES[i + 1]) * 10;
 			Path p = Paths.get(path + name).normalize();
 	
 			try {
@@ -133,6 +144,43 @@ public class IntegrationTest {
 		return res;
 	}
 	
+	
+	class CipherUtilsImplMeasure extends CipherUtilsImplStandard {
+		@Override
+		public byte[] decryptBlockImpl(Cipher decipher, byte[] bufEnc,
+				int start, int len) throws GeneralSecurityException {
+			TestUtils.startTime("decrypt", "group");
+			byte [] res = super.decryptBlockImpl(decipher, bufEnc, start, len);
+			TestUtils.endTime("decrypt");
+			return res;
+		}
+
+		@Override
+		public byte[] encryptBlockImpl(Cipher encipher, byte[] bufPlain,
+				int start, int len) throws GeneralSecurityException {
+			TestUtils.startTime("encrypt", "group");
+			byte [] res = super.encryptBlockImpl(encipher, bufPlain, start, len);
+			TestUtils.endTime("encrypt");
+			return res;
+		}
+
+		@Override
+		public int getEncAmtImpl(Cipher encipher, int decAmt) {
+			return super.getEncAmtImpl(encipher, decAmt);
+		}
+
+//		@Override
+//		public String encryptNameImpl(String plainName, Cipher encipher)
+//				throws GeneralSecurityException {
+//			return super.encryptNameImpl(plainName, encipher);
+//		}
+//
+//		@Override
+//		public String decryptName(String encName, Cipher decipher)
+//				throws GeneralSecurityException {
+//			return super.decryptName(encName, decipher);
+//		}
+	};	
 	/**
 	 * Copies between folders: copySrc(unencrypted)-->enc1(encrypted)-->enc2(encrypted)-->copyTarget(unencrypted)
 	 * @param conf2 - configuration for enc2 filesystem
@@ -141,6 +189,10 @@ public class IntegrationTest {
 	public void testCopyInternal(final String srcPath, final String enc1Path,
 			final String enc2Path, final String targetPath,
 			ConfigEncrypted conf2) throws Exception {
+		
+		CipherUtilsImpl impl = new CipherUtilsImplMeasure();
+		CipherUtils.setImpl(impl);
+		
 		//=== INIT ===
 		Map<String, Object> env2 = new HashMap<String, Object>();
 		env2.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CONFIG, conf2);
@@ -151,7 +203,7 @@ public class IntegrationTest {
 		env1.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CONFIG, ce);
 		env1.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_PASSWORD, "password1".toCharArray());
 		
-		ce.setBlockSize(100);
+//		ce.setBlockSize(100);
 		
 		Path src = Paths.get(srcPath);
 		Path enc = TestUtils.newTempFieSystem(mFspe, enc1Path, env1).getPath("/");
@@ -177,15 +229,16 @@ public class IntegrationTest {
 		TestUtils.endTime("Copy1");
 		System.out.println(TestUtils.printTime("Copy1"));
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
-		System.out.println(SeekableByteChannelEncrypted.l);
 		
 		TestUtils.startTime("Copy2");
+		SeekableByteChannelEncrypted.l = 0;
 		copyDirectory(enc, enc1);//DONE: does not copying correctly. Fixed bug in write function
 		TestUtils.endTime("Copy2");
 		System.out.println(TestUtils.printTime("Copy2"));
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		TestUtils.startTime("Copy3");
+		SeekableByteChannelEncrypted.l = 0;
 		copyDirectory(enc1, target);//DONE: make it work
 		TestUtils.endTime("Copy3");
 		System.out.println(TestUtils.printTime("Copy3"));
@@ -205,13 +258,15 @@ public class IntegrationTest {
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		TestUtils.startTime("Compare3");
+		SeekableByteChannelEncrypted.l = 0;
 		Assert.assertTrue(equals(enc, target));
 		TestUtils.endTime("Compare3");
 		System.out.println(TestUtils.printTime("Compare3"));
+		System.out.println(SeekableByteChannelEncrypted.l);
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		TestUtils.startTime("Compare4");
-		Assert.assertTrue(equals(enc, enc1));		
+		Assert.assertTrue(equals(enc, enc1));
 		TestUtils.endTime("Compare4");
 		System.out.println(TestUtils.printTime("Compare4"));
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
@@ -343,8 +398,8 @@ public class IntegrationTest {
 			TestUtils.deleteFolderContents(f);
 	}
 	
-	final String [] TEST_FILES = new String [] {"./1.txt", "200"
-			/*
+	final String [] TEST_FILES = new String [] {//"./1.txt", "100"
+			
 			
 			"./ujsl9Jw7G/wW/v/5/doKsk0HC/XGfUt4Y", "58724", 
 			"./ujsl9Jw7G/wW/v/5/doKsk0HC/D4LHx", "36085", 
@@ -545,7 +600,7 @@ public class IntegrationTest {
 			"./FdzGGAI1R/f/Kdne/PUdIN/7WKWYb4Qq/0ZK8by/VSiR5/XA/7e4qkKq", "62771", 
 			"./FdzGGAI1R/f/Kdne/PUdIN/7WKWYb4Qq/0ZK8by/VSiR5/XA/3DmzBss", "85854", 
 			"./FdzGGAI1R/f/Kdne/PUdIN/7WKWYb4Qq/0ZK8by/VSiR5/XA/1u2X", "97314", 
-			"./FdzGGAI1R/f/Kdne/PUdIN/7WKWYb4Qq/0ZK8by/VSiR5/XA/1u2X2", "97314"*/ 
+			"./FdzGGAI1R/f/Kdne/PUdIN/7WKWYb4Qq/0ZK8by/VSiR5/XA/1u2X2", "97314" 
 	};
 	
 //	http://docs.oracle.com/javase/7/docs/technotes/guides/security/StandardNames.html#Cipher
