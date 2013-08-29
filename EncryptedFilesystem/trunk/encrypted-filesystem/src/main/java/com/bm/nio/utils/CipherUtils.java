@@ -1,12 +1,15 @@
 package com.bm.nio.utils;
 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.lang.reflect.Method;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
 
 import javax.crypto.Cipher;
-import javax.xml.bind.DatatypeConverter;
-
-import com.bm.nio.file.utils.TestUtils;
+import com.bm.nio.utils.impl.CipherUtilsImplStandard;
 
 /**
  * To extend functionality use {@link #setImpl(CipherUtilsImpl)}.
@@ -22,89 +25,20 @@ public class CipherUtils {
 	 * @author Mike
 	 */
 	public interface CipherUtilsImpl{
+		@OverrideRequired
 	    public byte [] decryptBlockImpl(Cipher decipher, byte [] bufEnc, int start, int len) throws GeneralSecurityException;
+		@OverrideRequired
 	    public byte [] encryptBlockImpl(Cipher encipher, byte [] bufPlain, int start, int len) throws GeneralSecurityException;
+		@OverrideRequired
 	    public int getEncAmtImpl(Cipher encipher, int decAmt);
 	    //name
 	    public String encryptNameImpl(String plainName, Cipher encipher) throws GeneralSecurityException;
 	    public String decryptName(String encName, Cipher decipher) throws GeneralSecurityException;
 	}
 
-	public static class CipherUtilsImplStandard implements CipherUtilsImpl {
-
-		@Override
-		public byte[] decryptBlockImpl(Cipher decipher, byte[] bufEnc,
-				int start, int len) throws GeneralSecurityException {
-	        byte [] tmp = new byte[len - start]; 
-	        System.arraycopy(bufEnc, start, tmp, 0, len); 
-	        tmp = decipher.doFinal(tmp);
-	        unxor(tmp);
-	        flip(tmp);
-	        tmp = decipher.doFinal(tmp);
-	        unxor(tmp);
-	        return tmp;
-		}
-
-		@Override
-		public byte[] encryptBlockImpl(Cipher encipher, byte[] bufPlain,
-				int start, int len) throws GeneralSecurityException {
-	        byte [] tmp = new byte[len - start]; 
-	        System.arraycopy(bufPlain, start, tmp, 0, len); 
-	        xor(tmp);
-	        tmp = encipher.doFinal(tmp);
-	        flip(tmp);
-	        xor(tmp);
-	        tmp = encipher.doFinal(tmp);
-	        return tmp;
-		}
-
-	    static void flip(byte [] a){
-	    	for (int i = 0, j = a.length - 1; i < a.length/2; i ++, j --){
-	    		byte tmp = a[i];
-	    		a[i] = a[j];
-	    		a[j] = tmp;
-	    	}
-	    }
-
-	    static void xor(byte [] a){
-	    	for(int i = 0; i < a.length - 1; i++)
-	    		a[i + 1] ^= a[i];
-	    }
-
-	    static void unxor(byte [] a){
-	    	for(int i = a.length - 1; i > 0; --i)
-	    		a[i] ^= a[i-1];
-	    }
-
-		@Override
-		public int getEncAmtImpl(Cipher encipher, int decAmt) {
-			return encipher.getOutputSize(encipher.getOutputSize(decAmt));
-		}
-
-		@Override
-		public String encryptNameImpl(String plainName, Cipher encipher)
-				throws GeneralSecurityException {
-			//TODO:
-			// consider using MAC
-			//throw new IllegalArgumentException();
-			//base64 contains "/" symbol!
-			//final String res = DatatypeConverter.printBase64Binary(encryptBlock(encipher, plainName.getBytes()));
-			final String res = DatatypeConverter.printHexBinary(encryptBlock(encipher, plainName.getBytes()));
-			//encode
-			return res;
-			//return plainName;
-		}
-
-		@Override
-		public String decryptName(String encName, Cipher decipher)
-				throws GeneralSecurityException {
-			//TODO: consider using MAC
-			//base64 contains "/" symbol!
-			final String res = new String(decryptBlock(decipher, DatatypeConverter.parseHexBinary(encName)));
-			return res;
-			//return encName;
-		}
-		
+	@Target(ElementType.METHOD)
+	@Retention(RetentionPolicy.RUNTIME)
+	@interface OverrideRequired{
 	}
 	
 	private static boolean isImplSet = false;
@@ -114,31 +48,52 @@ public class CipherUtils {
 	 * Sets implementation of encryption/encding functions Can only be set once.
 	 * @param impl
 	 */
-	public static void setImpl(CipherUtilsImpl impl){
+	public static void setImpl(CipherUtilsImpl impl) throws CipherUtilsImplException {
 		synchronized (lock) {
 			if (isImplSet)
-				throw new RuntimeException(CipherUtilsImpl.class.getSimpleName() + " was already set before");
+				throw new CipherUtilsImplException(CipherUtilsImpl.class.getSimpleName() + " was already set before");
 
+			String requiredStr = "";
 			try {
-				final Method [] methods = CipherUtilsImpl.class.getMethods();
-				for(int i = 0; i < methods.length - 1; i ++){
-					if (impl.getClass()
-							.getMethod(methods[i].getName())
+				final Method [] methodsTmp = CipherUtilsImpl.class.getMethods();
+				ArrayList<Method> methods = new ArrayList<Method>();
+				for(int i = 0; i < methodsTmp.length - 1; i ++){
+					if (methodsTmp[i].getAnnotation(OverrideRequired.class) != null){
+						methods.add(methodsTmp[i]);
+						requiredStr += methodsTmp[i].getName() + " ";
+					}
+				}
+
+				// check required methods
+				for(int i = 0; i < methods.size() - 1; i ++){
+					if (!impl.getClass()
+							.getMethod(methods.get(i).getName(), methods.get(i).getParameterTypes())
 							.getDeclaringClass()
-							.equals(impl.getClass().getMethod(methods[i + 1].getName())
+							.equals(impl.getClass().getMethod(methods.get(i + 1).getName(), methods.get(i + 1).getParameterTypes())
 									.getDeclaringClass()))
-						throw new RuntimeException(
+						throw new CipherUtilsImplException(
 								impl.getClass().getSimpleName()
-										+ " class should implement all methods of interface "
+										+ " class should implement " + requiredStr + " methods of interface "
 										+ CipherUtilsImpl.class.getSimpleName());
 				}
-			} catch (NoSuchMethodException | SecurityException e) {
+			} catch (SecurityException e) {
+			} catch (NoSuchMethodException e) {
+				throw new CipherUtilsImplException(
+						impl.getClass().getSimpleName()
+								+ " class should implement " + requiredStr + "methods of interface "
+								+ CipherUtilsImpl.class.getSimpleName());
 			}
 			isImplSet = true;
 			CipherUtils.impl = impl;
 		}
 	}
 	
+	public static void resetImpl() {
+		synchronized (lock) {
+			isImplSet = false;
+			impl = new CipherUtilsImplStandard();
+		}
+	}
     /**
      * Should be overridden together with encrypt/decrypt block
      * to return correct encrypted size
