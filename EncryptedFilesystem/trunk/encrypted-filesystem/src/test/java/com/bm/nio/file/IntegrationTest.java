@@ -145,12 +145,17 @@ public class IntegrationTest {
 	}
 	
 	
+	
 	class CipherUtilsImplMeasure extends CipherUtilsImplStandard {
+		private long decAmt = 0;
+		private long encAmt = 0;
+		
 		@Override
 		public byte[] decryptBlockImpl(Cipher decipher, byte[] bufEnc,
 				int start, int len) throws GeneralSecurityException {
 			TestUtils.startTime("decrypt", "group");
 			byte [] res = super.decryptBlockImpl(decipher, bufEnc, start, len);
+			decAmt += len;
 			TestUtils.endTime("decrypt");
 			return res;
 		}
@@ -160,6 +165,7 @@ public class IntegrationTest {
 				int start, int len) throws GeneralSecurityException {
 			TestUtils.startTime("encrypt", "group");
 			byte [] res = super.encryptBlockImpl(encipher, bufPlain, start, len);
+			encAmt += len;
 			TestUtils.endTime("encrypt");
 			return res;
 		}
@@ -190,7 +196,7 @@ public class IntegrationTest {
 			final String enc2Path, final String targetPath,
 			ConfigEncrypted conf2) throws Exception {
 		
-		CipherUtilsImpl impl = new CipherUtilsImplMeasure();
+		CipherUtilsImplMeasure impl = new CipherUtilsImplMeasure();
 		CipherUtils.setImpl(impl);
 		
 		//=== INIT ===
@@ -224,21 +230,21 @@ public class IntegrationTest {
 		//
 
 		TestUtils.startTime("Copy1");
-		SeekableByteChannelEncrypted.l = 0;
+		impl.decAmt = 0;
 		copyDirectory(src, enc);//DONE: does not work correctly with block ciphers. Fixed bug in write function
 		TestUtils.endTime("Copy1");
 		System.out.println(TestUtils.printTime("Copy1"));
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		TestUtils.startTime("Copy2");
-		SeekableByteChannelEncrypted.l = 0;
+		impl.decAmt = 0;
 		copyDirectory(enc, enc1);//DONE: does not copying correctly. Fixed bug in write function
 		TestUtils.endTime("Copy2");
 		System.out.println(TestUtils.printTime("Copy2"));
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		TestUtils.startTime("Copy3");
-		SeekableByteChannelEncrypted.l = 0;
+		impl.decAmt = 0;
 		copyDirectory(enc1, target);//DONE: make it work
 		TestUtils.endTime("Copy3");
 		System.out.println(TestUtils.printTime("Copy3"));
@@ -258,11 +264,11 @@ public class IntegrationTest {
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		TestUtils.startTime("Compare3");
-		SeekableByteChannelEncrypted.l = 0;
+		impl.decAmt = 0;
 		Assert.assertTrue(equals(enc, target));
 		TestUtils.endTime("Compare3");
 		System.out.println(TestUtils.printTime("Compare3"));
-		System.out.println(SeekableByteChannelEncrypted.l);
+		System.out.println(impl.decAmt);
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		TestUtils.startTime("Compare4");
