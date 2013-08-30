@@ -197,6 +197,7 @@ public class IntegrationTest {
 			ConfigEncrypted conf2) throws Exception {
 		
 		CipherUtilsImplMeasure impl = new CipherUtilsImplMeasure();
+		CipherUtils.resetImpl();
 		CipherUtils.setImpl(impl);
 		
 		//=== INIT ===
