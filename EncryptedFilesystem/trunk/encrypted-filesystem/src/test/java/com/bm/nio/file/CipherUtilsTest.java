@@ -6,6 +6,7 @@ import javax.crypto.Cipher;
 
 import junit.framework.Assert;
 
+import org.junit.After;
 import org.junit.Test;
 
 import com.bm.nio.utils.CipherUtils;
@@ -110,6 +111,11 @@ public class CipherUtilsTest {
 			exception = true;
 		}
 		Assert.assertFalse(exception);
+	}
+	
+	@After
+	public void reset(){
+		CipherUtils.resetImpl();
 	}
 	
 }

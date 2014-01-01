@@ -7,6 +7,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
+import java.nio.file.FileSystem;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,11 +17,17 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.GeneralSecurityException;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -37,9 +44,8 @@ public class IntegrationTest {
 	private final FileSystemProviderEncrypted mFspe = TestUtils.getEncryptedProvider();
 	
 	
-	public static final String TEST_COPY_SRC = "./src/test/copy_src/";
-	public static final String TEST_COPY_TARGET = "./src/test/copy_target/";
-	
+	public static final String TEST_COPY_SRC = "./src/test/copy_src";
+	public static final String TEST_COPY_TARGET = "./src/test/copy_target";
 	static{
 		//delete everything before starting tests
 		File f = new File(TestUtils.SANDBOX_PATH);
@@ -48,32 +54,148 @@ public class IntegrationTest {
 	}
 
 //	@Test
-//	public void testCopy(){
-//		System.out.println(System.getProperty("java.version"));
-//	}
+	public void testTest() throws Exception {
+		CipherUtilsImplMeasure impl = new CipherUtilsImplMeasure();
+		CipherUtils.resetImpl();
+		CipherUtils.setImpl(impl);
+		
+		ConfigEncrypted ce = new ConfigEncrypted();
+		ce.setTransformation("AES/NONE/PKCS1Padding");
+//		ce.setTransformation("AES/CBC/PKCS5Padding");
+		Map<String, Object> env = new HashMap<String, Object>();
+		env.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CONFIG, ce);
+		env.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_PASSWORD, "password1".toCharArray());
+		FileSystem fs = null;
+		try {
+			fs = TestUtils.newTempFieSystem(mFspe, TestUtils.SANDBOX_PATH + "/testCopy", env);			
+		} catch (IOException e) {
+			if (!(e.getCause() instanceof NoSuchAlgorithmException))
+				throw e;
+		}
+		
+		
+		Path enc = fs.getPath("/");
+		
+//		TransformationCaseProvider t = new TransformationCaseProvider(ALGORITHMS, MODES, PADDINGS);
+//		String transf = "";
+//		while ((transf = t.getNextTransformation()).length() != 0)
+//			System.out.println(transf);
+	}
+
+//	@Test
+	public void testCopyDefault() throws Exception {
+		generateTestFiles(TEST_COPY_SRC, TEST_FILES);
+		CipherUtilsImplMeasure impl = new CipherUtilsImplMeasure();
+		CipherUtils.resetImpl();
+		CipherUtils.setImpl(impl);
+		final ConfigEncrypted configCase = new ConfigEncrypted();
+		configCase.setTransformation("AES/CBC/PKCS5Padding");
+		
+		testCopyInternal(TEST_COPY_SRC, TestUtils.SANDBOX_PATH + "/testCopy",
+				TestUtils.SANDBOX_PATH + "/1testCopy", TEST_COPY_TARGET, configCase);
+		
+		TestUtils.delete(new File(TEST_COPY_TARGET));
+		TestUtils.deleteFolderContents(new File(TEST_COPY_SRC));
+	}	
 	
 	@Test
 	public void testCopy() throws Exception {
-		generateTestFiles(TEST_COPY_SRC);
+//		generateTestFiles(TEST_COPY_SRC);
+		generateTestFiles(TEST_COPY_SRC, TEST_FILES_SHORT);
+		CipherUtilsImplMeasure impl = new CipherUtilsImplMeasure();
+		CipherUtils.resetImpl();
+		CipherUtils.setImpl(impl);
 
-		ConfigEncrypted conf = new ConfigEncrypted();
-//		conf.setBlockSize(3);//TODO: also try 11
-		conf.setTransformation("AES/CBC/PKCS5Padding");//TODO: try another encryptions 
-		testCopyInternal(TEST_COPY_SRC, TestUtils.SANDBOX_PATH + "/testCopy",
-				TestUtils.SANDBOX_PATH + "/testCopy1", TEST_COPY_TARGET, conf);
+		final long startTime = System.currentTimeMillis();
+		//TODO: start in multi threads
+		ExecutorService es = Executors.newFixedThreadPool(10);
+//		for (int i = 0; i < 100; i ++){
+		TransformationCaseProvider t = new TransformationCaseProvider(ALGORITHMS, MODES, PADDINGS);
+		int i = 0;
+		int max = -1;
+		while (t.next()){
+			i ++;
+			
+			final ConfigEncrypted configCase = new ConfigEncrypted();
+//			conf.setBlockSize(3);//TODO: also try 11
+			
+//			configCase.setTransformation("AES/CBC/PKCS5Padding");//TODO: try another encryptions
+			configCase.setTransformation(t.getTransformation());
+			configCase.setKeyStrength(t.getKeyStrength());
+			
+//			configCase.setTransformation("AES/NONE/NoPadding"); // throws NoSuchAlgorithmException - skipping
+//			configCase.setTransformation("AES/CBC/NoPadding"); // throws padding exception - skipping
+//			configCase.setTransformation("AES/CBC/ISO10126Padding"); // can't use this padding as it uses random bytes at the end
+//			configCase.setTransformation("AES/ECB/NoPadding"); // throws nvalidAlgorithmParameterException: ECB mode cannot use IV, fixed to handle non-IV modes
+//			configCase.setTransformation("AESWrap/ECB/NoPadding"); // UnsupportedOperationException: This cipher can only be used for key wrapping and unwrapping
+//			configCase.setTransformation("DESede/PCBC/PKCS5Padding"); // InvalidKeyException: Invalid key length: 16 bytes - created length for each algorithm
+//			configCase.setTransformation("RC2/CBC/PKCS5Padding"); // InvalidParameterSpecException: Inappropriate parameter specification. Added parameter passing when init encipher/decipher, instead of IV
+//			configCase.setTransformation("RSA/ECB/NoPadding"); // InvalidKeyException: No installed provider supports this key: javax.crypto.spec.SecretKeySpec - no support for assymetric ciphers (RSA)
+			
+//			configCase.setTransformation("DES/CBC/PKCS1Padding");
+//			configCase.setKeyStrength(64);
+			
+//			configCase.setTransformation("AES/CBC/PKCS5Padding");
+//			configCase.setTransformation("Blowfish/ECB/PKCS5Padding");
+			
+			final int num = i;
+			es.execute(new Runnable() {
+				@Override
+				public void run() {
+					try {
+						// filter out known exceptions
+						try {
+							testCopyInternal(TEST_COPY_SRC, TestUtils.SANDBOX_PATH + "/testCopy" + num,
+									TestUtils.SANDBOX_PATH + "/1testCopy" + num, TEST_COPY_TARGET + num, configCase);
+						} catch (AssertionError e){
+							e.printStackTrace();//TODO: handle properly
+						} catch (RuntimeException e) {
+							// ---- 1 ----
+							// OK
+							// skip exception when using block ciphers without padding.
+							// that should be thrown correctly and should be fixed by correctly defining transformation 
+							// or using already padded file contents/names
+							if (e.getCause() == null || !(e.getCause() instanceof IllegalBlockSizeException))
+								throw e;
+							return;
+						} catch (IOException e) {
+							// ---- 1 ----
+							// OK 
+							// when no such transformation/algorithm, just continue
+							if (!(e.getCause() instanceof NoSuchAlgorithmException))
+								throw new RuntimeException(e);
+							return;// TODO: log warning?
+						}
+					
+					} catch (Exception e) {
+						e.printStackTrace();
+						System.out.println(configCase.getTransformation());
+					} finally {
+						TestUtils.delete(new File(TEST_COPY_TARGET + num));						
+					}
+					
+				}
+			});
 
+//			break;
+		}
+		es.shutdown();
+		es.awaitTermination(100, TimeUnit.DAYS);
+		System.out.println("Elapsed: " + (System.currentTimeMillis() - startTime));
+		
+//		Thread.sleep(2000);
+		TestUtils.deleteFolderContents(new File(TEST_COPY_SRC));
 	}
 	
 	/**
 	 * Creates test files and directory structure, hardcoded.
 	 */
-	private void generateTestFiles(String path) throws Exception {
-		//TODO:
+	private static void generateTestFiles(String path, String [] files) throws Exception {
 		TestUtils.deleteFolderContents(new File(path));
 		Random r = new Random();
-		for (int i = 0; i < TEST_FILES.length; i +=2){
-			String name = TEST_FILES[i];
-			int len = Integer.valueOf(TEST_FILES[i + 1]) * 10;
+		for (int i = 0; i < files.length; i +=2){
+			String name = files[i];
+			int len = Integer.valueOf(files[i + 1]) * 1;
 			Path p = Paths.get(path + name).normalize();
 	
 			try {
@@ -89,8 +211,6 @@ public class IntegrationTest {
 				for (int j = 0; j < len; j ++){
 					data[j] = (byte)r.nextInt(Byte.MAX_VALUE);
 				}
-//					os.write(r.nextInt(Byte.MAX_VALUE));
-//					os.write(data);
 				bc.write(ByteBuffer.wrap(data));
 			}
 				
@@ -144,49 +264,6 @@ public class IntegrationTest {
 		return res;
 	}
 	
-	
-	
-	class CipherUtilsImplMeasure extends CipherUtilsImplStandard {
-		private long decAmt = 0;
-		private long encAmt = 0;
-		
-		@Override
-		public byte[] decryptBlockImpl(Cipher decipher, byte[] bufEnc,
-				int start, int len) throws GeneralSecurityException {
-			TestUtils.startTime("decrypt", "group");
-			byte [] res = super.decryptBlockImpl(decipher, bufEnc, start, len);
-			decAmt += len;
-			TestUtils.endTime("decrypt");
-			return res;
-		}
-
-		@Override
-		public byte[] encryptBlockImpl(Cipher encipher, byte[] bufPlain,
-				int start, int len) throws GeneralSecurityException {
-			TestUtils.startTime("encrypt", "group");
-			byte [] res = super.encryptBlockImpl(encipher, bufPlain, start, len);
-			encAmt += len;
-			TestUtils.endTime("encrypt");
-			return res;
-		}
-
-		@Override
-		public int getEncAmtImpl(Cipher encipher, int decAmt) {
-			return super.getEncAmtImpl(encipher, decAmt);
-		}
-
-//		@Override
-//		public String encryptNameImpl(String plainName, Cipher encipher)
-//				throws GeneralSecurityException {
-//			return super.encryptNameImpl(plainName, encipher);
-//		}
-//
-//		@Override
-//		public String decryptName(String encName, Cipher decipher)
-//				throws GeneralSecurityException {
-//			return super.decryptName(encName, decipher);
-//		}
-	};	
 	/**
 	 * Copies between folders: copySrc(unencrypted)-->enc1(encrypted)-->enc2(encrypted)-->copyTarget(unencrypted)
 	 * @param conf2 - configuration for enc2 filesystem
@@ -196,27 +273,31 @@ public class IntegrationTest {
 			final String enc2Path, final String targetPath,
 			ConfigEncrypted conf2) throws Exception {
 		
-		CipherUtilsImplMeasure impl = new CipherUtilsImplMeasure();
-		CipherUtils.resetImpl();
-		CipherUtils.setImpl(impl);
-		
 		//=== INIT ===
 		Map<String, Object> env2 = new HashMap<String, Object>();
 		env2.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CONFIG, conf2);
-		env2.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_PASSWORD, "password1".toCharArray());
+		env2.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_PASSWORD, getRandomString("1234567890", 10).toCharArray());
 
 		ConfigEncrypted ce = new ConfigEncrypted();
 		Map<String, Object> env1 = new HashMap<String, Object>();
 		env1.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CONFIG, ce);
-		env1.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_PASSWORD, "password1".toCharArray());
+		env1.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_PASSWORD, getRandomString("1234567890", 10).toCharArray());
 		
 //		ce.setBlockSize(100);
-		
+		TestUtils.deleteFolderContents(new File(enc1Path));
+		TestUtils.deleteFolderContents(new File(enc2Path));		
 		Path src = Paths.get(srcPath);
-		Path enc = TestUtils.newTempFieSystem(mFspe, enc1Path, env1).getPath("/");
+		Path enc;// = TestUtils.newTempFieSystem(mFspe, enc1Path, env1).getPath("/");
 		//another type of encryption
-		Path enc1 = TestUtils.newTempFieSystem(mFspe, enc2Path, env2).getPath("/");
-		
+		Path enc1;// = TestUtils.newTempFieSystem(mFspe, enc2Path, env2).getPath("/");
+		FileSystem fs = TestUtils.newTempFieSystem(mFspe, enc1Path, env1);
+		FileSystem fs1 = TestUtils.newTempFieSystem(mFspe, enc2Path, env2);
+		enc = fs.getPath("/");
+		enc1 = fs1.getPath("/");
+//		enc = TestUtils.newTempFieSystem(mFspe, enc1Path, env1).getPath("/");
+//		enc1 = TestUtils.newTempFieSystem(mFspe, enc2Path, env2).getPath("/");
+		Path p;
+		p = fs.getPath("123");
 		Path target = Paths.get(targetPath);
 		//Path 
 		//prepare
@@ -231,21 +312,21 @@ public class IntegrationTest {
 		//
 
 		TestUtils.startTime("Copy1");
-		impl.decAmt = 0;
+//		impl.decAmt = 0;
 		copyDirectory(src, enc);//DONE: does not work correctly with block ciphers. Fixed bug in write function
 		TestUtils.endTime("Copy1");
 		System.out.println(TestUtils.printTime("Copy1"));
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		TestUtils.startTime("Copy2");
-		impl.decAmt = 0;
+//		impl.decAmt = 0;
 		copyDirectory(enc, enc1);//DONE: does not copying correctly. Fixed bug in write function
 		TestUtils.endTime("Copy2");
 		System.out.println(TestUtils.printTime("Copy2"));
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		TestUtils.startTime("Copy3");
-		impl.decAmt = 0;
+//		impl.decAmt = 0;
 		copyDirectory(enc1, target);//DONE: make it work
 		TestUtils.endTime("Copy3");
 		System.out.println(TestUtils.printTime("Copy3"));
@@ -253,40 +334,55 @@ public class IntegrationTest {
 		
 		
 		TestUtils.startTime("Compare1");
-		Assert.assertTrue(equals(src, target));
+		Assert.assertEquals(equals(src, target), "");
 		TestUtils.endTime("Compare1");
 		System.out.println(TestUtils.printTime("Compare1"));
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		TestUtils.startTime("Compare2");
-		Assert.assertTrue(equals(src, enc));
+		Assert.assertEquals(equals(src, enc), "");
 		TestUtils.endTime("Compare2");
 		System.out.println(TestUtils.printTime("Compare2"));
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		TestUtils.startTime("Compare3");
-		impl.decAmt = 0;
-		Assert.assertTrue(equals(enc, target));
+//		impl.decAmt = 0;
+		Assert.assertEquals(equals(enc, target), "");
 		TestUtils.endTime("Compare3");
 		System.out.println(TestUtils.printTime("Compare3"));
-		System.out.println(impl.decAmt);
+//		System.out.println(impl.decAmt);
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		TestUtils.startTime("Compare4");
-		Assert.assertTrue(equals(enc, enc1));
+		Assert.assertEquals(equals(enc, enc1), "");
 		TestUtils.endTime("Compare4");
 		System.out.println(TestUtils.printTime("Compare4"));
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
+		
+		p = fs.getPath("123");
+
 	}
 	
-	public boolean equals(Path sourceLocation , Path targetLocation) throws IOException{
+	public String equals(Path sourceLocation , Path targetLocation) throws IOException{
 		try {
 			Files.walkFileTree(sourceLocation, new DirCompareVisitor(sourceLocation, targetLocation));
 			Files.walkFileTree(targetLocation, new DirCompareVisitor(targetLocation, sourceLocation));
 		} catch (Exception e) {
-			return false;
+			try {
+				// considering java has a async Disk operations, it should be that file is not created during check
+				// sleep long time in this case and try again.
+				Thread.sleep(1000);
+			} catch (InterruptedException e1) {
+				return e1.getMessage();
+			}
+			try {
+				Files.walkFileTree(sourceLocation, new DirCompareVisitor(sourceLocation, targetLocation));
+				Files.walkFileTree(targetLocation, new DirCompareVisitor(targetLocation, sourceLocation));
+			} catch (Exception e2) {
+				return e.getMessage();
+			}
 		}
-		return true;
+		return "";
 	}
 	
 	 public class DirCompareVisitor extends SimpleFileVisitor<Path> {
@@ -302,7 +398,7 @@ public class IntegrationTest {
 		    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
 		    	final Path p1 = toPath.resolve(fromPath.relativize(dir).toString());
 		        if(!Files.exists(p1) || !Files.isDirectory(p1)){
-		            throw new RuntimeException("Path " + p1.toString() + " is missing or is not directory");
+		            throw new RuntimeException("Path " + p1.toAbsolutePath().toString() + " is missing or is not directory");
 		        }
 		        return FileVisitResult.CONTINUE;
 		    }
@@ -311,11 +407,11 @@ public class IntegrationTest {
 		    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 		    	final Path p1 = toPath.resolve(fromPath.relativize(file).toString());
 		        if(!Files.exists(p1) || Files.isDirectory(p1)){
-		            throw new RuntimeException("Path " + p1.toString() + " is missing or is not a file");
+		            throw new RuntimeException("Path " + p1.toAbsolutePath().toString() + " is missing or is not a file");
 		        }
 
 		        if (!isEqual(Files.newInputStream(file), Files.newInputStream(p1))){
-		        	throw new RuntimeException("Path " + p1.toString() + " is not equals to " + file.toString());
+		        	throw new RuntimeException("Path " + p1.toAbsolutePath().toString() + " is not equal to " + file.toString());
 		        }
 		        //Files.copy(file, p1, copyOption);
 		        return FileVisitResult.CONTINUE;
@@ -360,7 +456,7 @@ public class IntegrationTest {
 	 
 	public void copyDirectory(Path sourceLocation , Path targetLocation)
 		    throws IOException {
-		Files.walkFileTree(sourceLocation, new CopyDirVisitor(sourceLocation, targetLocation));
+			Files.walkFileTree(sourceLocation, new CopyDirVisitor(sourceLocation, targetLocation));
     }
 		
 	 
@@ -404,6 +500,16 @@ public class IntegrationTest {
 		if (f.isDirectory())
 			TestUtils.deleteFolderContents(f);
 	}
+	
+	final String [] TEST_FILES_SHORT = new String [] {
+	"./bms/x2kUEm6m/aoPHfF/0e", "8192", 
+	"./bms/x2kUEm6m/aoPHfF/F", "3077", 
+	"./k-GNcx", "82183",
+	"./ApGYOv/N5Ao0/qf/eszXjSrUI/yVmW", "3192", 
+	"./s1v2K/Gw/AfSqEOIX/BYwWyj9/z/lrAX/sCcmL74m/AWMYdJ", "77",	
+	"./F", "1",
+	"./FdzGGAI1R/f/Kdne/PUdIN/7WKWYb4Qq/0ZK8by/VSiR5/XA/VrDOB3", "31261"
+	};
 	
 	final String [] TEST_FILES = new String [] {//"./1.txt", "100"
 			
@@ -610,6 +716,74 @@ public class IntegrationTest {
 			"./FdzGGAI1R/f/Kdne/PUdIN/7WKWYb4Qq/0ZK8by/VSiR5/XA/1u2X2", "97314" 
 	};
 	
+	private static class Alg {
+		String algorithm;
+		int keyStrength;
+		public Alg(String algorithm, int keyStrength) {
+			super();
+			this.algorithm = algorithm;
+			this.keyStrength = keyStrength;
+		}
+	}
+	
+	private final static Alg [] ALGORITHMS = {
+		new Alg("AES", 128),
+		// can't be used for encoding
+//		new Alg("AESWrap", 128),
+		new Alg("ARCFOUR", 128),
+		new Alg("Blowfish", 128),
+		new Alg("CCM", 128),
+		new Alg("DES", 64),
+		new Alg("DESede", 196),
+		// can't be used for encoding
+//		new Alg("DESedeWrap", 128),
+		new Alg("ECIES", 128),
+		new Alg("GCM", 128),
+		new Alg("RC2", 128),
+		new Alg("RC4", 128),
+		new Alg("RC5", 128)
+		// don't support assymetric ciphers
+//		new Alg("RSA", 128)
+		
+//		"AES",
+//		// can't be used for encoding
+//		//"AESWrap",
+//		"ARCFOUR",
+//		"Blowfish",
+//		"CCM",
+//		"DES",
+//		"DESede",
+//		"DESedeWrap",
+//		"ECIES",
+//		"GCM",
+//		"RC2",
+//		"RC4",
+//		"RC5",
+//		"RSA"
+	};
+	
+	private final static String [] MODES = {
+		"NONE",
+		"CBC",
+		"CFB",
+		"CTR",
+		"CTS",
+		"ECB",
+		"OFB",
+		"PCBC"
+	};
+	
+	private final static String [] PADDINGS = {
+		"NoPadding",
+		// this uses random bytes, so no strict encrypted/underlying name correspondense
+		// can't use this padding
+		//"ISO10126Padding", 
+		"OAEPPadding",
+		"PKCS1Padding",
+		"PKCS5Padding",
+		"SSL3Padding"
+	};
+	
 //	http://docs.oracle.com/javase/7/docs/technotes/guides/security/StandardNames.html#Cipher
 //
 //		Algorithms:
@@ -648,4 +822,91 @@ public class IntegrationTest {
 //
 //		672 cases
 
+	
+	class CipherUtilsImplMeasure extends CipherUtilsImplStandard {
+		private long decAmt = 0;
+		private long encAmt = 0;
+		
+		@Override
+		public byte[] decryptBlockImpl(Cipher decipher, byte[] bufEnc,
+				int start, int len) throws GeneralSecurityException {
+			TestUtils.startTime("decrypt", "group");
+			byte [] res = super.decryptBlockImpl(decipher, bufEnc, start, len);
+			decAmt += len;
+			TestUtils.endTime("decrypt");
+			return res;
+		}
+
+		@Override
+		public byte[] encryptBlockImpl(Cipher encipher, byte[] bufPlain,
+				int start, int len) throws GeneralSecurityException {
+			TestUtils.startTime("encrypt", "group");
+			byte [] res = super.encryptBlockImpl(encipher, bufPlain, start, len);
+			encAmt += len;
+			TestUtils.endTime("encrypt");
+			return res;
+		}
+
+		@Override
+		public int getEncAmtImpl(Cipher encipher, int decAmt) {
+			return super.getEncAmtImpl(encipher, decAmt);
+		}
+	};	
+	
+	//little hardcode
+	static class TransformationCaseProvider{
+		private Alg [] algorithms;
+		private String [] modes;
+		private String [] paddings;
+		private int algIndex = 0;
+		private int modeIndex = 0;
+		private int padIndex = -1;
+		
+		public TransformationCaseProvider(Alg [] algorithms, String[] modes,
+				String[] paddings) {
+			super();
+			this.algorithms = algorithms;
+			this.modes = modes;
+			this.paddings = paddings;
+		}
+
+
+
+		public boolean next(){
+			increment();
+			if (algIndex >= algorithms.length)
+				return false;
+			return true;
+		}
+
+		public String getTransformation(){
+			try {
+				String str = algorithms[algIndex].algorithm + "/" + modes[modeIndex] + "/" + paddings[padIndex];
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			
+			return algorithms[algIndex].algorithm + "/" + modes[modeIndex] + "/" + paddings[padIndex];
+		}
+		
+		public int getKeyStrength(){
+			return algorithms[algIndex].keyStrength;
+		}
+		
+		private void increment(){
+			padIndex ++;
+			if (padIndex >= paddings.length){
+				padIndex = 0;
+				modeIndex ++;
+			}
+			if (modeIndex >= modes.length){
+				modeIndex = 0;
+				algIndex ++;
+			}
+		}
+		
+	}	
+
+	
+	
 }

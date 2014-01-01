@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.FileSystem;
+import java.nio.file.FileSystemAlreadyExistsException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
@@ -97,19 +98,35 @@ public class TestUtils {
 		deleteFolderInternal(folder, true);
 	}
 	
-	private static void deleteFolderInternal(File folder, boolean isContentsOnly) {
+//	private static void deleteBlocking (File f){
+//		try {
+//			Files.deleteIfExists(f.toPath());
+//			while (Files.exists(f.toPath())){
+//				Files.deleteIfExists(f.toPath());
+//				Thread.sleep(100);
+//			}
+//		} catch (IOException|InterruptedException e1) {
+//			e1.printStackTrace();
+//		}
+//	}
+//	
+	private static void deleteFolderInternal(File folder, boolean isContentsOnly){
 	    File[] files = folder.listFiles();
 	    if(files!=null) {
 	        for(File f: files) {
 	            if(f.isDirectory()) {
 	            	deleteFolderInternal(f, false);
 	            } else {
+//	                Files.delete(f.toPath());
 	                f.delete();
+//	                deleteBlocking(f);
 	            }
 	        }
 	    }
 	    if (!isContentsOnly)
+//            Files.delete(folder.toPath());	    	
 	    	folder.delete();
+//	    	deleteBlocking(folder);
 	}
 	// ===
 	
@@ -158,9 +175,23 @@ public class TestUtils {
 		return newTempFieSystem(fpe, path, newEnv());
 	}
 	public static FileSystem newTempFieSystem(FileSystemProviderEncrypted fpe, String path, Map<String, ?> env) throws IOException, URISyntaxException{
+		return newTempFieSystem(fpe, path, env, false);
+	}
+	
+	public static FileSystem newTempFieSystem(FileSystemProviderEncrypted fpe, String path, Map<String, ?> env, boolean recreateExisting) throws IOException, URISyntaxException{
 		File file = TestUtils.newTempDir(path); 
 		URI uri1Encrypted = TestUtils.uriEncrypted(TestUtils.fileToURI(file));
-		return fpe.newFileSystem(uri1Encrypted, env);
+		FileSystem res;
+		try {
+			res = fpe.newFileSystem(uri1Encrypted, env);
+		} catch (FileSystemAlreadyExistsException e) {
+			if (!recreateExisting)
+				throw e;
+			res = fpe.getFileSystem(uri1Encrypted);
+			res.close();
+			res = fpe.newFileSystem(uri1Encrypted, env);
+		}
+		return res;
 	}
 	
 	//=== TIMER UTILS ===

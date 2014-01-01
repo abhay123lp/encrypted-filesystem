@@ -220,14 +220,13 @@ public class SeekableByteChannelEncryptedTest {
 			}
 			
 			public void testRead(SeekableByteChannelEncrypted ce, SeekableByteChannelTestListUnsupported underChannel) throws Exception {
-				int i = 0;
 				ByteBuffer dec = ByteBuffer.wrap("12345678abcdefghi".getBytes());
 				//ByteBuffer enc = ByteBuffer.wrap(new byte [100]);
-				ByteBuffer decTmp = ByteBuffer.wrap(new byte [100]);
+				ByteBuffer decTmp = ByteBuffer.wrap(new byte [1000]);
 				underChannel.first();
 				underChannel.reset();
-				i = 0;
 				int len = 0;
+				int i = 0;
 				while (underChannel.next()){
 					i ++;
 					underChannel.setSupported();
@@ -254,6 +253,11 @@ public class SeekableByteChannelEncryptedTest {
 		underChannel.setSupported();
 		ce = getSeekableByteChannelEncrypted(underChannel, "AES/CBC/PKCS5Padding", 8);
 		underChannel.position(0);
+		
+		//TEST
+//		ut = new UnsupportedTest();
+		//
+		//test what was written in ut.testWrite(ce, underChannel); before
 		ut.testRead(ce, underChannel);
 		//=== no padding ===
 		underChannel = getUnderChannelListUnsupported();
