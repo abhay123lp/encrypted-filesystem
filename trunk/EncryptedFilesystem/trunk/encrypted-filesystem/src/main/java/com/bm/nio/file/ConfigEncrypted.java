@@ -9,13 +9,18 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.AlgorithmParameters;
 import java.security.GeneralSecurityException;
+import java.security.Provider.Service;
+import java.security.spec.AlgorithmParameterSpec;
+import java.security.spec.InvalidParameterSpecException;
 import java.security.spec.KeySpec;
+import java.util.Set;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.RC2ParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.simpleframework.xml.Attribute;
@@ -61,6 +66,8 @@ public class ConfigEncrypted {
 	private volatile boolean macNames = true;
 	@Element
 	private volatile boolean macFiles = true;
+	//uses constant iv
+	private byte [] iv;
 	
 	private void loadConfigInternal(InputStream is) throws Exception {
 			getSerializer().read(this, is);
@@ -81,8 +88,7 @@ public class ConfigEncrypted {
 			res.version = config.version;
 		} catch (Exception e) {
 			final RuntimeException rte = new RuntimeException(
-					"Unable to copy values");
-			rte.initCause(e);
+					"Unable to copy values", e);
 			throw rte;
 		}
 		return res;
@@ -241,8 +247,11 @@ public class ConfigEncrypted {
 			encipher = Cipher.getInstance(transformation, provider);
 			decipher = Cipher.getInstance(transformation, provider);
 		}
-        byte [] iv = initEncipher(encipher, key);
-        initDecipher(decipher, key, iv);
+		
+		initCiphers(encipher, decipher, key);
+		
+//		AlgorithmParameters params = initEncipher(encipher, key);
+//        initDecipher(decipher, key, params);
         Ciphers ciphers = new Ciphers();
         ciphers.decipher = decipher;
         ciphers.encipher = encipher;
@@ -254,20 +263,32 @@ public class ConfigEncrypted {
         SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
         KeySpec spec = new PBEKeySpec(password, salt.getBytes(), iterationCount, keyStrength);
         SecretKey tmp = factory.generateSecret(spec);
-        final SecretKeySpec key = new SecretKeySpec(tmp.getEncoded(), "AES");
+//        final SecretKeySpec key = new SecretKeySpec(tmp.getEncoded(), "AES");// TODO: get appropriate key
+        final SecretKeySpec key = new SecretKeySpec(tmp.getEncoded(), transformation.substring(0, transformation.indexOf("/")));// TODO: get appropriate key
         return key;
 	}
 	
-    private byte[] initEncipher(Cipher encipher, SecretKey key) throws GeneralSecurityException{
-        encipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(new byte[16]));
+    private void initCiphers(Cipher encipher, Cipher decipher, SecretKey key) throws GeneralSecurityException{
+   		encipher.init(Cipher.ENCRYPT_MODE, key);
         AlgorithmParameters params = encipher.getParameters();
-        return params.getParameterSpec(IvParameterSpec.class).getIV();
+    	if (params == null)// does not use IV
+    		decipher.init(Cipher.DECRYPT_MODE, key);
+    	else{
+    		// (pt. 20)
+    		// 1. set constant iv, as soon as it can't be loaded.
+    		// 2. without specifying iv channel won't be able 
+    		//    to decrypt encrypted data by the channel with the same config (algorithm/password)
+    		try {
+                IvParameterSpec ivGenerated = params.getParameterSpec(IvParameterSpec.class);
+                iv = new byte [ivGenerated.getIV().length];
+                encipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
+                decipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
+                return;
+			} catch (InvalidParameterSpecException e) {
+			}
+    		decipher.init(Cipher.DECRYPT_MODE, key, params);
+    	}
     }
-    
-    private void initDecipher(Cipher decipher, SecretKey key, byte [] iv) throws GeneralSecurityException{
-        decipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
-    }
-	
 	public static class Ciphers{
 		private Cipher encipher;
 		private Cipher decipher;
