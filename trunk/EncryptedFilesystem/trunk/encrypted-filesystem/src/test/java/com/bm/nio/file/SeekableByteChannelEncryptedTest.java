@@ -254,10 +254,7 @@ public class SeekableByteChannelEncryptedTest {
 		ce = getSeekableByteChannelEncrypted(underChannel, "AES/CBC/PKCS5Padding", 8);
 		underChannel.position(0);
 		
-		//TEST
-//		ut = new UnsupportedTest();
-		//
-		//test what was written in ut.testWrite(ce, underChannel); before
+		//tests reading what was written in ut.testWrite(ce, underChannel); above
 		ut.testRead(ce, underChannel);
 		//=== no padding ===
 		underChannel = getUnderChannelListUnsupported();
