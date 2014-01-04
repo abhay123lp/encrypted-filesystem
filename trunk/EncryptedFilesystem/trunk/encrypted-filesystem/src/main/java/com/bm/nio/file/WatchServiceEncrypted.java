@@ -106,6 +106,7 @@ public class WatchServiceEncrypted implements WatchService {
 			ArrayList<WatchEvent<?>> res = new ArrayList<WatchEvent<?>>();
 			for (WatchEvent<?> event : mKey.pollEvents()){
 				if (Path.class.isAssignableFrom(event.kind().type())){
+					@SuppressWarnings("unchecked")
 					final WatchEvent<Path> lEvent = (WatchEvent<Path>)event;
 					res.add(new WatchEvent<Path>() {
 						@Override

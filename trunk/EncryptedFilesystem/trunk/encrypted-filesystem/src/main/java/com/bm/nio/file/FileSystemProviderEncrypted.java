@@ -2,9 +2,7 @@ package com.bm.nio.file;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.AccessMode;
 import java.nio.file.CopyOption;
@@ -31,7 +29,6 @@ import java.nio.file.attribute.FileAttributeView;
 import java.nio.file.spi.FileSystemProvider;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -39,14 +36,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
-
-import sun.nio.fs.WindowsFileSystemProvider;
-
-
-import com.bm.nio.channels.SeekableByteChannelEncrypted;
-import com.bm.nio.file.utils.TestUtils;
-import com.sun.nio.zipfs.ZipFileSystem;
-import com.sun.nio.zipfs.ZipFileSystemProvider;
 
 import static com.bm.nio.file.FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CREATE_UNDERLYING_FILE_SYSTEM;
 
@@ -202,7 +191,7 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	 * <p> See {@link #getFileSystemInternal(Path)}
 	 */
 	protected FileSystemEncrypted getFileSystemInternal(PathEncrypted p){
-		return getFileSystemInternal(((PathEncrypted)p).getUnderPath());
+		return getFileSystemInternal(p.getUnderPath());
 	}
 	/**
 	 * Find path in filesystem and return encrypted filesystem if already exists 
@@ -601,14 +590,14 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	public Map<String, Object> readAttributes(Path path, String attributes,
 			LinkOption... options) throws IOException {
 		// TODO Auto-generated method stub
-		return null;
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
 	public void setAttribute(Path path, String attribute, Object value,
 			LinkOption... options) throws IOException {
 		// TODO Auto-generated method stub
-		
+		throw new UnsupportedOperationException();
 	}
 
 }
