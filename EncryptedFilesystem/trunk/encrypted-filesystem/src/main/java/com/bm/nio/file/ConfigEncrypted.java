@@ -1,6 +1,5 @@
 package com.bm.nio.file;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -9,12 +8,9 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.AlgorithmParameters;
 import java.security.GeneralSecurityException;
-import java.security.Provider.Service;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.InvalidParameterSpecException;
 import java.security.spec.KeySpec;
-import java.util.Set;
-
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;

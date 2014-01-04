@@ -26,16 +26,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
-
-import sun.nio.fs.WindowsFileSystemProvider;
 
 import com.bm.nio.channels.SeekableByteChannelEncrypted;
 import com.bm.nio.file.ConfigEncrypted.Ciphers;
 import com.bm.nio.utils.CacheLocal;
 import com.bm.nio.utils.CipherUtils;
-import com.sun.nio.zipfs.ZipFileSystem;
 
 
 /**
@@ -391,7 +387,6 @@ public class FileSystemEncrypted extends FileSystem {
 	//Returns PathEncrypted 
 	//example1: root=D:/enc1, first = dir, return D:/enc/dir
 	//example2: root=D:/enc1, first = /dir, throws IllegalArgumentException (D:/dir is not part of D:/enc1)
-	//TOTEST
 	//DONE: decide string path should be encrypted or decrypted???
 	/**
 	 * Gets path string RELATIVE TO THE ROOT of filesystem, [D:/enc1/]dir, or together with filesystem root D:/enc1/dir.
@@ -404,7 +399,6 @@ public class FileSystemEncrypted extends FileSystem {
 	public Path getPath(String first, String... more) {
 		// DONE: make to work properly
 		//let underlying fs do all stick work. Create absolute path to not deal with .., ./ etc
-		//TOREVIEW: use either of below
 		//Path lPath = mRoot.resolve(mRoot.getFileSystem().getPath(first, more));//.toAbsolutePath()?
 		Path lPath = mRoot.getFileSystem().getPath(first, more);
 		try {
@@ -417,14 +411,6 @@ public class FileSystemEncrypted extends FileSystem {
 	}
 	
 	
-	/**
-	 * Sets custom decoder, for example base64 to decode filenames and file contents
-	 */
-	public void setNameDecoder(){
-		//TODO: implement 
-		//TODO: make it to save/load implementing class from properties
-	}
-	
 	@Override
 	public FileSystemProvider provider() {
 		return mProvider;
@@ -434,7 +420,7 @@ public class FileSystemEncrypted extends FileSystem {
 	private boolean isClosed = false;
 	@Override
 	public synchronized void close() throws IOException {
-		// TODO remove itself from filesystemprovider
+		// DONE remove itself from filesystemprovider
 		//also need to close channels and streams, consider using by many threads
 		mProvider.closeFilesystem(this);
 		isClosed = true;
@@ -509,26 +495,25 @@ public class FileSystemEncrypted extends FileSystem {
 	@Override
 	public Iterable<FileStore> getFileStores() {
 		// TODO Auto-generated method stub
-		return null;
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
 	public Set<String> supportedFileAttributeViews() {
 		// TODO Auto-generated method stub
-		return null;
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
 	public PathMatcher getPathMatcher(String syntaxAndPattern) {
 		// TODO Auto-generated method stub
-		return null;
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
 	public UserPrincipalLookupService getUserPrincipalLookupService() {
 		// TODO Auto-generated method stub
-		
-		return null;
+		throw new UnsupportedOperationException();		
 	}
 
 	//+ Done

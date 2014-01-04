@@ -7,22 +7,14 @@ import java.nio.channels.Channel;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.spi.AbstractInterruptibleChannel;
-import java.security.AlgorithmParameters;
 import java.security.GeneralSecurityException;
-import java.security.spec.KeySpec;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
-import java.util.zip.ZipException;
-
 import javax.crypto.Cipher;
-import javax.crypto.SecretKey;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.IvParameterSpec;
-import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
 import com.bm.nio.file.ConfigEncrypted;
@@ -134,8 +126,8 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
     	envConfig = props.get(FileSystemEncryptedEnvParams.ENV_CONFIG);
 		envPwd = props.get(FileSystemEncryptedEnvParams.ENV_PASSWORD);
 		envCiphers = props.get(FileSystemEncryptedEnvParams.ENV_CIPHERS);
-		final char [] pwd;
-		final SecretKeySpec key;
+//		final char [] pwd;
+//		final SecretKeySpec key;
 		final Ciphers c;
     	if (envConfig != null)
     		mConfig = ConfigEncrypted.newConfig((ConfigEncrypted)envConfig);
@@ -239,7 +231,7 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			mChannel.position(posTmp);
 			//byte [] lastBlockDec = decryptBlock(remainderArray);
 			byte [] lastBlockDec = CipherUtils.decryptBlock(decipher, remainderArray);
-			sizeDec += (long)lastBlockDec.length;
+			sizeDec += lastBlockDec.length;
 			return sizeDec;
 		}
 		//} catch (Exception e) {
@@ -346,7 +338,7 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 			if (len == 0)
 				//return 0;
 				len = decBlockSize; // load whole block if "pos" points to the first byte
-			long posEnc = currBlock * (long)encBlockSize;
+			long posEnc = currBlock * encBlockSize;
 			try {
 				mChannel.position(posEnc);
 			} catch (UnsupportedOperationException e) {
@@ -444,7 +436,7 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 				len = getBlockPos(mDecPos, decBlockSize);
 			if (len == 0)
 				return 0;
-			long posEnc = currBlock * (long)encBlockSize;
+			long posEnc = currBlock * encBlockSize;
 			try {
 				mChannel.position(posEnc);
 			} catch (UnsupportedOperationException e) {
@@ -519,7 +511,7 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 					//newPosition = lastBlock * (long)decBlockSize;
 				}
 				//can only put position to the beginning of the last block as can't say more accurate for plain data
-				long posEnc = getBlockNum(newPosition, decBlockSize) * (long)encBlockSize;
+//				long posEnc = getBlockNum(newPosition, decBlockSize) * encBlockSize;
 				// === 1 - flush buffer before setting position. Continue if save is not supported (readonly)
 				UnsupportedOperationException ue = new UnsupportedOperationException("Unable to change position: allowed to change only within one block size " + decBlockSize);
 				try {
@@ -745,8 +737,8 @@ public class SeekableByteChannelEncrypted extends AbstractInterruptibleChannel i
 				return this;
 			long newBlock = getBlockNum(size, decBlockSize);
 			long lastBlock = getBlockNum(sizeDec, decBlockSize);
-			long posEnc = newBlock * (long)encBlockSize;
-			long posDec = newBlock * (long)decBlockSize;
+			long posEnc = newBlock * encBlockSize;
+			long posDec = newBlock * decBlockSize;
 			int newBlockPos = getBlockPos(size, decBlockSize);//position in latest truncated block
 			//if fits the end of block (newBlockPos == 0) no need to calculate last block, just cut in the end
 			if (newBlockPos == 0){

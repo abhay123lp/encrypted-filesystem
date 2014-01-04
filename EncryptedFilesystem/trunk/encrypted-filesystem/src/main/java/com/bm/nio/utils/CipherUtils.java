@@ -94,7 +94,7 @@ public class CipherUtils {
 		return res;
 	}
 	
-	private static HashMap<String, ArrayList<Method>> getGroups(Class cl){
+	private static HashMap<String, ArrayList<Method>> getGroups(Class<?> cl){
 		HashMap<String, ArrayList<Method>> groups = new HashMap<String, ArrayList<Method>>();
 		final Method [] methodsTmp = cl.getMethods();
 		for(int i = 0; i < methodsTmp.length; i ++){
