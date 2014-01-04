@@ -21,6 +21,7 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.RC2ParameterSpec;
+import javax.crypto.spec.RC5ParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.simpleframework.xml.Attribute;
@@ -278,17 +279,43 @@ public class ConfigEncrypted {
     		// 1. set constant iv, as soon as it can't be loaded.
     		// 2. without specifying iv channel won't be able 
     		//    to decrypt encrypted data by the channel with the same config (algorithm/password)
-    		try {
-                IvParameterSpec ivGenerated = params.getParameterSpec(IvParameterSpec.class);
+    		// 3. All algorithms with IV should be added below
+    		final IvParameterSpec ivGenerated = getParameterSpec(params, IvParameterSpec.class);
+    		if (ivGenerated != null){
                 iv = new byte [ivGenerated.getIV().length];
                 encipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
                 decipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
                 return;
-			} catch (InvalidParameterSpecException e) {
-			}
+    		}
+    		final RC2ParameterSpec rc2IvGenerated = getParameterSpec(params, RC2ParameterSpec.class);
+    		if (rc2IvGenerated != null){
+                iv = new byte [rc2IvGenerated.getIV().length];
+                final RC2ParameterSpec rc2Static = new RC2ParameterSpec(rc2IvGenerated.getEffectiveKeyBits(), iv);
+                encipher.init(Cipher.ENCRYPT_MODE, key, rc2Static);
+                decipher.init(Cipher.DECRYPT_MODE, key, rc2Static);
+                return;
+    		}
+    		final RC5ParameterSpec rc5IvGenerated = getParameterSpec(params, RC5ParameterSpec.class);
+    		if (rc5IvGenerated != null){
+                iv = new byte [rc5IvGenerated.getIV().length];
+                final RC5ParameterSpec rc5Static = new RC5ParameterSpec(rc5IvGenerated.getVersion(), rc5IvGenerated.getRounds(), rc5IvGenerated.getWordSize(), iv);
+                encipher.init(Cipher.ENCRYPT_MODE, key, rc5Static);
+                decipher.init(Cipher.DECRYPT_MODE, key, rc5Static);
+                return;
+    		}
+    		
     		decipher.init(Cipher.DECRYPT_MODE, key, params);
     	}
     }
+    
+    private <T extends AlgorithmParameterSpec> T getParameterSpec(AlgorithmParameters params, Class<T> paramSpec) {
+    	try {
+			return params.getParameterSpec(paramSpec);
+		} catch (InvalidParameterSpecException e) {
+			return null;
+		}
+    }
+    
 	public static class Ciphers{
 		private Cipher encipher;
 		private Cipher decipher;

@@ -73,7 +73,7 @@ public class DirectoryStreamEncrypted implements DirectoryStream<Path> {
 			try {
 				if ((underPath = mUnderIterator.next()) == null)
 					return null;
-				if (underPath.equals(mPath.getFileSystem().getConfigPath()))//don't see config file
+				if (underPath.equals(mPath.getFileSystem().getConfigPath()))//skip config file
 					continue;
 				res = new PathEncrypted(mPath.getFileSystem(), underPath);
 				if (!mPath.isAbsolute())//result should be the same type as mPath. UnderPath is always absolute, see 16.3.1

@@ -82,8 +82,8 @@ public class IntegrationTest {
 //			System.out.println(transf);
 	}
 
-//	@Test
-	public void testCopyDefault() throws Exception {
+	@Test
+	public void testCopySimple() throws Exception {
 		generateTestFiles(TEST_COPY_SRC, TEST_FILES);
 		CipherUtilsImplMeasure impl = new CipherUtilsImplMeasure();
 		CipherUtils.resetImpl();
@@ -93,33 +93,28 @@ public class IntegrationTest {
 		
 		testCopyInternal(TEST_COPY_SRC, TestUtils.SANDBOX_PATH + "/testCopy",
 				TestUtils.SANDBOX_PATH + "/1testCopy", TEST_COPY_TARGET, configCase);
-		
+
 		TestUtils.delete(new File(TEST_COPY_TARGET));
 		TestUtils.deleteFolderContents(new File(TEST_COPY_SRC));
 	}	
 	
 	@Test
 	public void testCopy() throws Exception {
-//		generateTestFiles(TEST_COPY_SRC);
 		generateTestFiles(TEST_COPY_SRC, TEST_FILES_SHORT);
 		CipherUtilsImplMeasure impl = new CipherUtilsImplMeasure();
 		CipherUtils.resetImpl();
 		CipherUtils.setImpl(impl);
 
 		final long startTime = System.currentTimeMillis();
-		//TODO: start in multi threads
+		//DONE: start in multi threads
 		ExecutorService es = Executors.newFixedThreadPool(10);
-//		for (int i = 0; i < 100; i ++){
 		TransformationCaseProvider t = new TransformationCaseProvider(ALGORITHMS, MODES, PADDINGS);
 		int i = 0;
-		int max = -1;
 		while (t.next()){
 			i ++;
-			
 			final ConfigEncrypted configCase = new ConfigEncrypted();
 //			conf.setBlockSize(3);//TODO: also try 11
 			
-//			configCase.setTransformation("AES/CBC/PKCS5Padding");//TODO: try another encryptions
 			configCase.setTransformation(t.getTransformation());
 			configCase.setKeyStrength(t.getKeyStrength());
 			
@@ -149,6 +144,11 @@ public class IntegrationTest {
 									TestUtils.SANDBOX_PATH + "/1testCopy" + num, TEST_COPY_TARGET + num, configCase);
 						} catch (AssertionError e){
 							e.printStackTrace();//TODO: handle properly
+							throw new Exception(
+									String.format(
+											"Exception processing transformation %s with strength %s",
+											configCase.getTransformation(),
+											configCase.getKeyStrength()), e);
 						} catch (RuntimeException e) {
 							// ---- 1 ----
 							// OK
@@ -186,6 +186,7 @@ public class IntegrationTest {
 //		Thread.sleep(2000);
 		TestUtils.deleteFolderContents(new File(TEST_COPY_SRC));
 	}
+	
 	
 	/**
 	 * Creates test files and directory structure, hardcoded.
@@ -273,6 +274,9 @@ public class IntegrationTest {
 			final String enc2Path, final String targetPath,
 			ConfigEncrypted conf2) throws Exception {
 		
+//		if (enc2Path.contains("1testCopy329"))
+//			System.out.println(123);
+		
 		//=== INIT ===
 		Map<String, Object> env2 = new HashMap<String, Object>();
 		env2.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CONFIG, conf2);
@@ -303,60 +307,60 @@ public class IntegrationTest {
 		//prepare
 		//TestUtils.deleteFolderContents(enc.toFile());
 		//TestUtils.deleteFolderContents(enc1.toFile());
-		TestUtils.startTime("Copy0");
+		TestUtils.startTime("UNENCRYPTED_SRC-UNENCRYPTED_TRG");
 		copyDirectory(src, target);
-		TestUtils.endTime("Copy0");
-		System.out.println(TestUtils.printTime("Copy0"));
+		TestUtils.endTime("UNENCRYPTED_SRC-UNENCRYPTED_TRG");
+		System.out.println(TestUtils.printTime("UNENCRYPTED_SRC-UNENCRYPTED_TRG"));
 		TestUtils.deleteFolderContents(target.toFile());
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		//
 
-		TestUtils.startTime("Copy1");
+		TestUtils.startTime("UNENCRYPTED_SRC-ENCRYPTED");
 //		impl.decAmt = 0;
 		copyDirectory(src, enc);//DONE: does not work correctly with block ciphers. Fixed bug in write function
-		TestUtils.endTime("Copy1");
-		System.out.println(TestUtils.printTime("Copy1"));
+		TestUtils.endTime("UNENCRYPTED_SRC-ENCRYPTED");
+		System.out.println(TestUtils.printTime("UNENCRYPTED_SRC-ENCRYPTED"));
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
-		TestUtils.startTime("Copy2");
+		TestUtils.startTime("ENCRYPTED-ENCRYPTED1");
 //		impl.decAmt = 0;
 		copyDirectory(enc, enc1);//DONE: does not copying correctly. Fixed bug in write function
-		TestUtils.endTime("Copy2");
-		System.out.println(TestUtils.printTime("Copy2"));
+		TestUtils.endTime("ENCRYPTED-ENCRYPTED1");
+		System.out.println(TestUtils.printTime("ENCRYPTED-ENCRYPTED1"));
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
-		TestUtils.startTime("Copy3");
+		TestUtils.startTime("ENCRYPTED1-UNENCRYPTED_TRG");
 //		impl.decAmt = 0;
 		copyDirectory(enc1, target);//DONE: make it work
-		TestUtils.endTime("Copy3");
-		System.out.println(TestUtils.printTime("Copy3"));
+		TestUtils.endTime("ENCRYPTED1-UNENCRYPTED_TRG");
+		System.out.println(TestUtils.printTime("ENCRYPTED1-UNENCRYPTED_TRG"));
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		
-		TestUtils.startTime("Compare1");
+		TestUtils.startTime("Compare - UNENCRYPTED_SRC-UNENCRYPTED_TRG");
 		Assert.assertEquals(equals(src, target), "");
-		TestUtils.endTime("Compare1");
-		System.out.println(TestUtils.printTime("Compare1"));
+		TestUtils.endTime("Compare - UNENCRYPTED_SRC-UNENCRYPTED_TRG");
+		System.out.println(TestUtils.printTime("Compare - UNENCRYPTED_SRC-UNENCRYPTED_TRG"));
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
-		TestUtils.startTime("Compare2");
+		TestUtils.startTime("Compare - UNENCRYPTED_SRC-ENCRYPTED");
 		Assert.assertEquals(equals(src, enc), "");
-		TestUtils.endTime("Compare2");
-		System.out.println(TestUtils.printTime("Compare2"));
+		TestUtils.endTime("Compare - UNENCRYPTED_SRC-ENCRYPTED");
+		System.out.println(TestUtils.printTime("Compare - UNENCRYPTED_SRC-ENCRYPTED"));
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
-		TestUtils.startTime("Compare3");
+		TestUtils.startTime("Compare - ENCRYPTED-UNENCRYPTED_TRG");
 //		impl.decAmt = 0;
 		Assert.assertEquals(equals(enc, target), "");
-		TestUtils.endTime("Compare3");
-		System.out.println(TestUtils.printTime("Compare3"));
+		TestUtils.endTime("Compare - ENCRYPTED-UNENCRYPTED_TRG");
+		System.out.println(TestUtils.printTime("Compare - ENCRYPTED-UNENCRYPTED_TRG"));
 //		System.out.println(impl.decAmt);
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
-		TestUtils.startTime("Compare4");
+		TestUtils.startTime("Compare - ENCRYPTED-ENCRYPTED1");
 		Assert.assertEquals(equals(enc, enc1), "");
-		TestUtils.endTime("Compare4");
-		System.out.println(TestUtils.printTime("Compare4"));
+		TestUtils.endTime("Compare - ENCRYPTED-ENCRYPTED1");
+		System.out.println(TestUtils.printTime("Compare - ENCRYPTED-ENCRYPTED1"));
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
 		
 		p = fs.getPath("123");
@@ -823,6 +827,11 @@ public class IntegrationTest {
 //		672 cases
 
 	
+	/**
+	 * Used to measure encription/decrition times
+	 * @author Mike
+	 *
+	 */
 	class CipherUtilsImplMeasure extends CipherUtilsImplStandard {
 		private long decAmt = 0;
 		private long encAmt = 0;
@@ -832,7 +841,6 @@ public class IntegrationTest {
 				int start, int len) throws GeneralSecurityException {
 			TestUtils.startTime("decrypt", "group");
 			byte [] res = super.decryptBlockImpl(decipher, bufEnc, start, len);
-			decAmt += len;
 			TestUtils.endTime("decrypt");
 			return res;
 		}

@@ -37,7 +37,7 @@ public class TestUtils {
 	
 	public static void deleteFilesystems(FileSystemProviderEncrypted provider) throws IOException {
 		for (FileSystemEncrypted fe : provider.getFileSystems()){
-			for (Path p : fe.getRootDirectories())
+			for (Path p : fe.getRootDirectories()){
 				Files.walkFileTree(p, new FileVisitor<Path>() {
 
 					@Override
@@ -79,6 +79,7 @@ public class TestUtils {
 					}
 
 				});
+			}
 		}
 	}
 	
