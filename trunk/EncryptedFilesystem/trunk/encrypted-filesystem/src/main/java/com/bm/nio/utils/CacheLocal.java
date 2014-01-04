@@ -7,6 +7,7 @@ public class CacheLocal <T> extends ThreadLocal<T> {
 		// additionally, when local variable for thread does not exist
 		// existing can be used from another thread, that already finished
 		// stay with this implementation to not overcomplicate
+//		return initialValue();
 		return super.get();
 	}
 	

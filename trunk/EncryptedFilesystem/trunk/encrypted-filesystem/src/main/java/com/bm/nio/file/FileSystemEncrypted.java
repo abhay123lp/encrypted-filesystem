@@ -87,8 +87,9 @@ public class FileSystemEncrypted extends FileSystem {
 	//TODO: 14. consider taking PWD every time as a parameter
 	//char [] pwd;
 	SecretKeySpec key;
-//	CacheLocal<Ciphers> ciphers;//TODO: fix to make work correctly
-	Ciphers ciphers;
+	//cache is required to make ciphers multithreaded (as son as filesystem should be is threadsafe)
+	CacheLocal<Ciphers> ciphers;//DONE: fix to make work correctly
+//	Ciphers ciphers;
 	
 	/**
 	 * @param provider
@@ -183,8 +184,8 @@ public class FileSystemEncrypted extends FileSystem {
 		//
 		this.key = res.newSecretKeySpec(pwd);
 		
-		ciphers = res.newCiphers(key);
-//		ciphers = initCiphersCache(res, key);
+//		ciphers = res.newCiphers(key);
+		ciphers = initCiphersCache(res, key);
 		// create config file if not exists
 		if (!Files.exists(configPath)){
 			Files.createFile(configPath);
@@ -329,11 +330,13 @@ public class FileSystemEncrypted extends FileSystem {
 	}
 	
 	private String encryptName(String plainName) throws GeneralSecurityException {
-		return CipherUtils.encryptName(plainName, ciphers.getEncipher());
+		return CipherUtils.encryptName(plainName, ciphers.get().getEncipher());
+//		return CipherUtils.encryptName(plainName, ciphers.getEncipher());
 	}
 	
 	private String decryptName(String encName) throws GeneralSecurityException {
-		return CipherUtils.decryptName(encName, ciphers.getDecipher());
+		return CipherUtils.decryptName(encName, ciphers.get().getDecipher());
+//		return CipherUtils.decryptName(encName, ciphers.getDecipher());
 	}
 
 
@@ -349,7 +352,8 @@ public class FileSystemEncrypted extends FileSystem {
 				//DONE: 5.5.6. Add password or cipher to parameters. 
 				props.put(FileSystemEncryptedEnvParams.ENV_CONFIG, config);
 //				props.put(FileSystemEncryptedEnvParams.ENV_PASSWORD, this.key);
-				props.put(FileSystemEncryptedEnvParams.ENV_CIPHERS, ciphers);
+				props.put(FileSystemEncryptedEnvParams.ENV_CIPHERS, ciphers.get());
+//				props.put(FileSystemEncryptedEnvParams.ENV_CIPHERS, ciphers);
 				ch = SeekableByteChannelEncrypted.newChannel(uch, props);//DONE: pass config encrypted
 			}
 			if (options.contains(StandardOpenOption.APPEND))
