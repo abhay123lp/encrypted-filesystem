@@ -18,13 +18,19 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.GeneralSecurityException;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
@@ -82,7 +88,7 @@ public class IntegrationTest {
 //			System.out.println(transf);
 	}
 
-	@Test
+//	@Test
 	public void testCopySimple() throws Exception {
 		generateTestFiles(TEST_COPY_SRC, TEST_FILES);
 		CipherUtilsImplMeasure impl = new CipherUtilsImplMeasure();
@@ -94,6 +100,59 @@ public class IntegrationTest {
 		testCopyInternal(TEST_COPY_SRC, TestUtils.SANDBOX_PATH + "/testCopy",
 				TestUtils.SANDBOX_PATH + "/1testCopy", TEST_COPY_TARGET, configCase);
 
+		TestUtils.delete(new File(TEST_COPY_TARGET));
+		TestUtils.deleteFolderContents(new File(TEST_COPY_SRC));
+	}	
+	
+	/**
+	 * Expect no exception
+	 * @throws Exception
+	 */
+	@Test
+	public void testMultithread() throws Exception {
+//		generateTestFiles(TEST_COPY_SRC, TEST_FILES_SHORT);
+		CipherUtilsImplMeasure impl = new CipherUtilsImplMeasure();
+		CipherUtils.resetImpl();
+		CipherUtils.setImpl(impl);
+		final ConfigEncrypted configCase = new ConfigEncrypted();
+		configCase.setTransformation("AES/CBC/PKCS5Padding");
+		
+		final FileSystem fsEnc = TestUtils.newTempFieSystem(mFspe, TestUtils.SANDBOX_PATH + "/testCopyMultithread");
+		class BarrierHolder{ public CyclicBarrier barrier;};
+		final BarrierHolder bh = new BarrierHolder();
+		
+		ArrayList<Thread> threads = new ArrayList<Thread>();
+		final BlockingQueue<Exception> exceptions = new LinkedBlockingQueue<Exception>();
+		// create N source directories with different folder names and copy to enc target concurrently
+		for (int i = 0; i < 20; i ++){
+			final String COPY_SRC = TestUtils.SANDBOX_PATH + "copy_src" + i;
+			generateTestFiles(COPY_SRC, appendFileNames(TEST_FILES_SHORT, i));
+			threads.add(new Thread() {
+				@Override
+				public void run() {
+					try {
+						bh.barrier.await();
+						copyDirectory(Paths.get(COPY_SRC), fsEnc.getPath("/"));
+					} catch (Exception e) {
+						exceptions.add(e);
+					}
+				}
+			});
+		}
+		
+		bh.barrier = new CyclicBarrier(threads.size());
+		for (Thread r : threads){
+			r.start();
+		}
+		for (Thread r : threads){
+			r.join();
+		}
+		
+		for (Exception ex : exceptions){
+			ex.printStackTrace();
+		}
+		Assert.assertEquals("Found exceptions while copying", exceptions.size(), 0);
+		
 		TestUtils.delete(new File(TEST_COPY_TARGET));
 		TestUtils.deleteFolderContents(new File(TEST_COPY_SRC));
 	}	
@@ -514,6 +573,26 @@ public class IntegrationTest {
 	"./F", "1",
 	"./FdzGGAI1R/f/Kdne/PUdIN/7WKWYb4Qq/0ZK8by/VSiR5/XA/VrDOB3", "31261"
 	};
+	
+	/**
+	 * Appends test filenames with custom index
+	 * @param testFiles
+	 * @param index
+	 * @return
+	 */
+	private static String [] appendFileNames(String [] testFiles, int index){
+		String [] res = testFiles.clone();
+		for (int i = 0; i < res.length; i +=2){
+			final String [] names = res[i].split("/");
+			res[i] = "";
+			for (String name : names){
+				if (name.charAt(name.length() - 1) != '.')
+					name += index;
+				res[i] += name + "/";
+			}
+		}
+		return res;
+	}
 	
 	final String [] TEST_FILES = new String [] {//"./1.txt", "100"
 			
