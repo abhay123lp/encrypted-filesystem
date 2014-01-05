@@ -1,3 +1,4 @@
+
 import java.io.File;
 
 import java.io.FileOutputStream;
@@ -57,7 +58,6 @@ import org.simpleframework.xml.Root;
 import org.simpleframework.xml.core.Persister;
 import org.simpleframework.xml.stream.Format;
 
-import sun.nio.fs.WindowsFileSystemProvider;
 
 import com.bm.nio.file.ConfigEncrypted;
 import com.bm.nio.file.FileAttributesEncrypted;
@@ -103,16 +103,10 @@ public class Test {
 //		TestUtils.endTime("test");
 //		System.out.println(TestUtils.printTime("test"));
 		
-		new IntegrationTest().testCopy();
+//		new IntegrationTest().testCopy();
+//		new Test().measureEncSpeed();
+		new Test().checkKey();
 
-//		ConfigEncrypted ce = new ConfigEncrypted();
-//		Cipher c = ce.newCiphers("123".toCharArray()).getDecipher();
-//		byte [] data = new byte [90000000];
-//		long l = System.currentTimeMillis();
-//		c.doFinal(data);
-//		c.doFinal(data);
-//		l = System.currentTimeMillis() - l;
-//		System.out.println(l);
 		
 	}
 	
@@ -429,4 +423,29 @@ public class Test {
 
 		Thread.sleep(10000);
 	}
+	
+	public void measureEncSpeed() throws Exception {
+		ConfigEncrypted ce = new ConfigEncrypted();
+//		ce.setTransformation("AES/CBC/NoPadding");
+
+		Cipher c = ce.newCiphers("123".toCharArray()).getDecipher();
+		byte [] data = new byte [90000000];
+//		byte [] data = new byte [9];
+		long l = System.currentTimeMillis();
+		c.doFinal(data);
+		c.doFinal(data);
+		l = System.currentTimeMillis() - l;
+		System.out.println(l);
+	}
+	
+	public void checkKey() throws Exception {
+	    SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
+	    KeySpec spec = new PBEKeySpec("123".toCharArray(), "123".getBytes(), 10, 128);
+	    SecretKey tmp = factory.generateSecret(spec);
+	    SecretKeySpec key = new SecretKeySpec(tmp.getEncoded(), "AES");// TODO: get appropriate key
+	    key = new SecretKeySpec(tmp.getEncoded(), "Blowfish");// TODO: get appropriate key
+	    key = new SecretKeySpec(tmp.getEncoded(), "DES");// TODO: get appropriate key
+	    //Blowfish, DES
+	}
+
 }

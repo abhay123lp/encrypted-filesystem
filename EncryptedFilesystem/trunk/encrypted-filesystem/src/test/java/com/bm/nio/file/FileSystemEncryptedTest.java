@@ -1,56 +1,26 @@
 package com.bm.nio.file;
 
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.ByteBuffer;
-import java.nio.channels.ByteChannel;
-import java.nio.channels.Channels;
-import java.nio.channels.FileChannel;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
-import java.nio.charset.Charset;
-import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystemAlreadyExistsException;
 import java.nio.file.FileSystems;
-import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.WatchService;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.spi.FileSystemProvider;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
-import java.util.zip.ZipFile;
-
-import javax.xml.bind.DatatypeConverter;
-
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
-import sun.nio.fs.WindowsFileSystemProvider;
-
 import com.bm.nio.file.utils.TestUtils;
-import com.sun.nio.zipfs.ZipFileSystem;
-import com.sun.nio.zipfs.ZipFileSystemProvider;
-import com.sun.nio.zipfs.ZipPath;
-import com.sun.xml.internal.messaging.saaj.util.ByteOutputStream;
 
 public class FileSystemEncryptedTest {
 
