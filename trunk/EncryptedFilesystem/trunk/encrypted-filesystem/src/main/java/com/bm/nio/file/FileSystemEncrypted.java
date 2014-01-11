@@ -75,6 +75,14 @@ public class FileSystemEncrypted extends FileSystem {
 		 */
 		public static final String ENV_PASSWORD = "env.password";
 		public static final String ENV_CIPHERS = "env.ciphers";
+		/**
+		 * Encryption configuration.  <br>
+		 * Controls creation of configuration file in underlying filesystem.
+		 * In the next invocation persisted properties will be loaded <br>
+		 * True by default.<br>
+		 * Value Type: {@link Boolean}
+		 */
+		public static final String ENV_CREATE_CONFIG = "env.create.config";
 	}
 	
 	private String configFile = "config.xml";
@@ -111,7 +119,7 @@ public class FileSystemEncrypted extends FileSystem {
 		}
 		
 		//DONE: create common functions to encryps/decrypt file by password (store cipher in FileSystemEncrypted)
-    	mRoot = path.toAbsolutePath();
+    	mRoot = path.toAbsolutePath().normalize();
     	mProvider = provider;
 		config = loadConfig(mRoot, env);
     }
@@ -183,7 +191,7 @@ public class FileSystemEncrypted extends FileSystem {
 //		ciphers = res.newCiphers(key);
 		ciphers = initCiphersCache(res, key);
 		// create config file if not exists
-		if (!Files.exists(configPath)){
+		if (!Files.exists(configPath) && !Boolean.FALSE.equals(env.get(FileSystemEncryptedEnvParams.ENV_CREATE_CONFIG))){
 			Files.createFile(configPath);
 			res.saveConfig(configPath);
 		}

@@ -6,7 +6,10 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystemAlreadyExistsException;
 import java.nio.file.FileVisitOption;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
@@ -18,11 +21,18 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.spi.FileSystemProvider;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
 /**
  * Encrypted filesystem should exist before creating FileEncrypted.
+ * @author Mike
+ *
+ */
+/**
+ * Encrypted filesystem should exisist before creating FileEncrypted
+ * This is required because Encrypted filesystem responds to name encryption
  * @author Mike
  *
  */
@@ -39,14 +49,6 @@ public class FileEncrypted extends File {
 		return new FileSystemProviderEncrypted();
 	}
 	
-//	private static URI fileToURI(File f) throws IOException{
-//		return Paths.get(f.getCanonicalPath()).toUri();
-//	}
-//	
-//	private static URI uriEncrypted(URI u) throws URISyntaxException{
-//		return new URI(fs.getScheme() + ":" + u);
-//	}
-	
 	@Override
 	public PathEncrypted toPath() {
 		return mPath;
@@ -57,71 +59,130 @@ public class FileEncrypted extends File {
 	 * Firstly check if this is real file by decrypting name. If fail trying to encrypt to check if mFile has decrypted name
 	 * @return
 	 */
-	private PathEncrypted initPath(final Path underPath){
+	private static InitResult initPath(final File underFile){
+		return initPath(underFile, null);
+	}
+	private static InitResult initPath(final File underFile, char[] password){
 //		try {
 			//find corresponding encrypted filesystem
-//			final Path mUnderPath = mFile.toPath();
-			FileSystemEncrypted fse = fs.getFileSystemInternal(Paths.get(underPath.toString()));
-			if (fse == null)
-				throw new RuntimeException("Encrypted filesystem was not found for path " + underPath.toString());
-			try {
-				fse.decryptUnderPath(underPath);
-				//mUnderPath - real underlying encrypted path, i.e. D:\enc1\1EE1
-				return new PathEncrypted(fse, underPath);
-			} catch (Exception e) {
+			final Path underPath = underFile.toPath();
+			final Path absoluteUnderPath = underPath.toAbsolutePath().normalize();
+			final Boolean isDirectory = underFile.isDirectory();
+//			FileSystemEncrypted fse = fs.getFileSystemInternal(Paths.get(underPath.toString()));
+			//getting filesystem
+			//TODO: handle relative paths:. Decided to go with Root
+			//1. consider whether to create filesystem from parent or from relative root for relative paths
+			//2. For root filesystem should be searched against root
+			//3. For parent filesystem should be searched against parent but underlying path should be frpm parent.
+			FileSystemEncrypted fse = fs.getFileSystemInternal(absoluteUnderPath);
+			if (fse == null){
+				if (password == null)
+					throw new RuntimeException("Encrypted filesystem was not found for path " + underPath.toString());
 				try {
-					final Path encryptedPath = fse.encryptUnderPath(underPath);
-					//mUnderPath - real decrypted path, i.e. D:\enc1\DIR1.
-					//Need to encrypt it first, to real path D:\enc1\1EE1
-					return new PathEncrypted(fse, encryptedPath);
-				} catch (GeneralSecurityException e1) {
-					throw new RuntimeException("Unable to locate encrypted or decrypted path " + this.getPath(), e1);
+					if (isDirectory)
+						fse = fs.newFileSystem(absoluteUnderPath, newEnv(password));
+					else
+						fse = fs.newFileSystem(absoluteUnderPath.getParent(), newEnv(password));
+				} catch (FileSystemAlreadyExistsException e) {
+					if (isDirectory)
+						fse = fs.getFileSystemInternal(absoluteUnderPath);
+					else
+						fse = fs.getFileSystemInternal(absoluteUnderPath.getParent());
+					//below will be checked in above getFileSystem for parent
+//					//if fse is still null it means that there is Encrypted filesystem that
+//					//is not appropriate for this path, 
+//					//for example there is filesystem: D:/dir/enc1 and path is: D:/dir
+//					if (fse == null)
+//						throw new RuntimeException("Filesystem cannot be created for path " + underPath.toString() + ". There is nested filesystem exists", e);
+				} catch (IOException e) {
+					throw new RuntimeException("Exception creating encrypted filesystem for path " + underPath.toString(), e);
 				}
 			}
+			// ========= deriving encrypted path =========
+			PathEncrypted res;
+			try {
+				fse.decryptUnderPath(absoluteUnderPath);
+				//mUnderPath - real underlying encrypted path, i.e. D:\enc1\1EE1
+				res = new PathEncrypted(fse, underPath);
+//				return new PathEncrypted(fse, underPath);
+			} catch (Exception e) {
+				try {
+					final Path encryptedPath = fse.encryptUnderPath(absoluteUnderPath);
+					//mUnderPath - real decrypted path, i.e. D:\enc1\DIR1.
+					//Need to encrypt it first, to real path D:\enc1\1EE1
+					if (underPath.isAbsolute())
+						res = new PathEncrypted(fse, encryptedPath);
+					else
+						res = new PathEncrypted(fse, fse.getRootDir().relativize(encryptedPath));
+				} catch (GeneralSecurityException e1) {
+					throw new RuntimeException("Unable to locate encrypted or decrypted path " + underPath.toString(), e1);
+				}
+			}
+			return new InitResult(res.getUnderPath().toUri(), res);
+	}
+	
+	private static URI toUnderUri(URI uri){
+		if (uri.getScheme().equals(fs.getScheme()))
+			return fs.getPath(uri).getUnderPath().toUri();
+		else
+			return uri;
+	}
+	
+	private static HashMap<String, Object> newEnv(char[] password){
+		HashMap<String, Object> env = new HashMap<String, Object>();
+		env.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_PASSWORD, password);
+		env.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CREATE_CONFIG, false);
+		env.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CREATE_UNDERLYING_FILE_SYSTEM, true);
+		return env;
+	}
+
+	private static class InitResult{
+		final URI uri;
+		final PathEncrypted path;
+		public InitResult(URI uri, PathEncrypted path) {
+			super();
+			this.uri = uri;
+			this.path = path;
+		}
+	}
+	
+	private FileEncrypted(final InitResult res){
+		super(res.uri);
+		mPath = res.path;
 	}
 	/**
 	 * Corresponding encrypted path
 	 */
 	private final PathEncrypted mPath;
-	private File mFile;
+	/**
+	 * Creates encrypted file and if no encryptedfilesystem exists creates a new one with a root in parent folder
+	 * with default configuration and given password
+	 * @param file
+	 * @param password
+	 */
+	public FileEncrypted(File file, char [] password){
+		this(initPath(file, password));
+	}
 	public FileEncrypted(File parent, String child) {
-		super(parent, child);
-		
-//		mFile = new File(parent, child);
-		mPath = initPath(new File(parent, child).toPath());
-		mFile = mPath.getUnderPath().toFile();
+		this(initPath(new File(parent, child)));
 	}
 
 	public FileEncrypted(String parent, String child) {
-		super(parent, child);
-		
-//		mFile = new File(parent, child);
-		mPath = initPath(new File(parent, child).toPath());
-		mFile = mPath.getUnderPath().toFile();
+		this(initPath(new File(parent, child)));
 	}
 
 	//DONE: should accept real underlying path name i.e. D:\enc1\1EE1 or decrypted path name D:\enc1\DIR1
 	//TEST that both types are accepted and resolved
 	public FileEncrypted(String pathname) {
-		super(pathname);
-		
-//		mFile = new File(pathname);
-		mPath = initPath(new File(pathname).toPath());
-		mFile = mPath.getUnderPath().toFile();
+		this(initPath(new File(pathname)));
 	}
 
-	public static URI test(){
-		return null;
-	}
 	public FileEncrypted(URI uri) {
-		super(uri);
-//		mFile = new File(uri);
-		mPath = initPath(new File(uri).toPath());
-		mFile = mPath.getUnderPath().toFile();
+		this(initPath(new File(toUnderUri(uri))));
 	}
 	
 	public File getUnderlyingFile(){
-		return mFile;
+		return mPath.getUnderPath().toFile();
 	}
 	
 	@Override
@@ -135,7 +196,7 @@ public class FileEncrypted extends File {
 	}
 
 	@Override
-	public File getParentFile() {
+	public FileEncrypted getParentFile() {
 		return new FileEncrypted(mPath.getParent().toUri());
 	}
 
@@ -155,21 +216,21 @@ public class FileEncrypted extends File {
 	}
 
 	@Override
-	public File getAbsoluteFile() {
+	public FileEncrypted getAbsoluteFile() {
 		return new FileEncrypted(mPath.toAbsolutePath().toUri());
 	}
 
 	@Override
 	public String getCanonicalPath() throws IOException {
-		//TODO: consider returning decrypted path
+		//DONE: consider returning decrypted path
 		// canonical should be normalized and absolute
 		return this.getCanonicalFile().toString();
 	}
 
 	@Override
-	public File getCanonicalFile() throws IOException {
+	public FileEncrypted getCanonicalFile() throws IOException {
 		//considering constructor can take real path, not only decrypted one
-		return new FileEncrypted(mFile.getCanonicalPath());
+		return new FileEncrypted(super.getCanonicalPath());
 	}
 
 	@Override
@@ -184,37 +245,37 @@ public class FileEncrypted extends File {
 
 	@Override
 	public boolean canRead() {
-		return mFile.canRead();
+		return super.canRead();
 	}
 
 	@Override
 	public boolean canWrite() {
-		return mFile.canWrite();
+		return super.canWrite();
 	}
 
 	@Override
 	public boolean exists() {
-		return mFile.exists();
+		return super.exists();
 	}
 
 	@Override
 	public boolean isDirectory() {
-		return mFile.isDirectory();
+		return super.isDirectory();
 	}
 
 	@Override
 	public boolean isFile() {
-		return mFile.isFile();
+		return super.isFile();
 	}
 
 	@Override
 	public boolean isHidden() {
-		return mFile.isHidden();
+		return super.isHidden();
 	}
 
 	@Override
 	public long lastModified() {
-		return mFile.lastModified();
+		return super.lastModified();
 	}
 
 	@Override
@@ -228,12 +289,12 @@ public class FileEncrypted extends File {
 
 	@Override
 	public boolean delete() {
-		return mFile.delete();
+		return super.delete();
 	}
 
 	@Override
 	public void deleteOnExit() {
-		mFile.deleteOnExit();
+		super.deleteOnExit();
 	}
 
 	@Override
@@ -317,12 +378,12 @@ public class FileEncrypted extends File {
 
 	@Override
 	public boolean mkdir() {
-		return mFile.mkdir();
+		return super.mkdir();
 	}
 
 	@Override
 	public boolean mkdirs() {
-		return mFile.mkdirs();//considering underling file has encrypted names
+		return super.mkdirs();//considering underling file has encrypted names
 	}
 
 	@Override
@@ -331,7 +392,7 @@ public class FileEncrypted extends File {
 			final FileEncrypted newFile = toCompatible(dest);
 			//not atomic operation
 			Files.move(mPath, newFile.mPath);
-			mFile = newFile.mFile;
+//			mFile = newFile.mFile;
 			super.renameTo(newFile.getUnderlyingFile());
 			return true;
 		} catch (IOException e) {
@@ -341,47 +402,47 @@ public class FileEncrypted extends File {
 
 	@Override
 	public boolean setLastModified(long time) {
-		return mFile.setLastModified(time);
+		return super.setLastModified(time);
 	}
 
 	@Override
 	public boolean setReadOnly() {
-		return mFile.setReadOnly();
+		return super.setReadOnly();
 	}
 
 	@Override
 	public boolean setWritable(boolean writable, boolean ownerOnly) {
-		return mFile.setWritable(writable, ownerOnly);
+		return super.setWritable(writable, ownerOnly);
 	}
 
 	@Override
 	public boolean setWritable(boolean writable) {
-		return mFile.setWritable(writable);
+		return super.setWritable(writable);
 	}
 
 	@Override
 	public boolean setReadable(boolean readable, boolean ownerOnly) {
-		return mFile.setReadable(readable, ownerOnly);
+		return super.setReadable(readable, ownerOnly);
 	}
 
 	@Override
 	public boolean setReadable(boolean readable) {
-		return mFile.setReadable(readable);
+		return super.setReadable(readable);
 	}
 
 	@Override
 	public boolean setExecutable(boolean executable, boolean ownerOnly) {
-		return mFile.setExecutable(executable, ownerOnly);
+		return super.setExecutable(executable, ownerOnly);
 	}
 
 	@Override
 	public boolean setExecutable(boolean executable) {
-		return mFile.setExecutable(executable);
+		return super.setExecutable(executable);
 	}
 
 	@Override
 	public boolean canExecute() {
-		return mFile.canExecute();
+		return super.canExecute();
 	}
 
 	@Override
@@ -438,7 +499,7 @@ public class FileEncrypted extends File {
 //		if (!pathNameEnc.toPath().getFileSystem().equals(this.toPath().getFileSystem()))
 //			throw new IllegalArgumentException("path " + pathname + " does not belong filesystem path " + this.toPath().getFileSystem().getRootDir());
 //		toCompatible(pathname);
-		return mFile.compareTo(toCompatible(pathname));
+		return super.compareTo(toCompatible(pathname));
 	}
 	
 	private FileEncrypted toCompatible(File file){
