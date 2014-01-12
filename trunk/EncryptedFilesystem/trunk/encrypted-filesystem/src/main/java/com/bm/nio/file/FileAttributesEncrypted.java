@@ -3,13 +3,17 @@ package com.bm.nio.file;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 
+import javax.crypto.Cipher;
+
+import com.bm.nio.utils.CipherUtils;
+
 public class FileAttributesEncrypted <T extends BasicFileAttributes> implements BasicFileAttributes{
 
 	private final T mAttrs;
-//	private final PathEncrypted mPath;
-	protected FileAttributesEncrypted(T attr){
+	private final PathEncrypted mPath;
+	protected FileAttributesEncrypted(T attr, PathEncrypted path){
 		mAttrs = attr;
-//		mPath = path;
+		mPath = path;
 	}
 	
 	@Override
@@ -49,11 +53,19 @@ public class FileAttributesEncrypted <T extends BasicFileAttributes> implements 
 
 	@Override
 	public long size() {
-		//TODO; the same as underlying size for stream ciphers
+		//DONE; the same as underlying size for stream ciphers
 		//throw unsupported for block ciphers
 		//should return decrypted size. Better calculated than cached.
-		return 0;
-//		throw new UnsupportedOperationException("");
+		final Cipher encipher = mPath.getFileSystem().ciphers.get().getEncipher();
+		//have to reduce to int because getEncAmount doesn't accept longs
+		if (CipherUtils.getEncAmt(encipher, 1) == 1)//otherwise getEncAmount may overflow for MAX_VALUE
+			if (CipherUtils.getEncAmt(encipher, Integer.MAX_VALUE) == Integer.MAX_VALUE){
+				final long encSize = sizeEncryted();
+				final int encIntRemaindr = (int)(encSize%(long)Integer.MAX_VALUE);
+				if (CipherUtils.getEncAmt(encipher, encIntRemaindr) == encIntRemaindr)
+					return encSize;
+			}
+		throw new UnsupportedOperationException("Unable to compute decrypted size for non-stream cipher");
 	}
 	
 	public long sizeEncryted(){

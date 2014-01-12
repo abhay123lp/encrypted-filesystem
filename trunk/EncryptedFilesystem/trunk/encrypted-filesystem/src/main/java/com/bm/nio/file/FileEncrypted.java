@@ -29,7 +29,7 @@ import java.util.List;
  * <pre>
  * Encrypted filesystem should exisist before creating FileEncrypted (unless password is provided)
  * This is required because Encrypted filesystem responds to name encryption
- * Won't work with standard File streams
+ * Won't work with standard File streams, use fpe.newOutputStream(fe.toPath())
  * </pre>
  * @author Mike
  *
@@ -206,6 +206,13 @@ public class FileEncrypted extends File {
 	 * Corresponding encrypted path
 	 */
 	private final PathEncrypted mPath;
+	
+	private static File getUnderFile(File parent, String child){
+		if (parent instanceof FileEncrypted)
+			return ((FileEncrypted)parent).toPath().resolve(child).toFile();
+		return new File(parent, child);
+	}
+	
 	/**
 	 * Creates encrypted file and if no encryptedfilesystem exists creates a new one with a root in parent folder
 	 * with default configuration and given password
@@ -216,7 +223,7 @@ public class FileEncrypted extends File {
 		this(initPath(file, password));
 	}
 	public FileEncrypted(File parent, String child) {
-		this(initPath(new File(parent, child)));
+		this(initPath(getUnderFile(parent, child)));
 	}
 
 	public FileEncrypted(String parent, String child) {
@@ -372,7 +379,7 @@ public class FileEncrypted extends File {
 				@Override
 				public FileVisitResult visitFileFailed(Path file,
 						IOException exc) throws IOException {
-					throw new RuntimeException("Unable to list file " + file.toString());
+					throw new RuntimeException("Unable to list file " + file.toString(), exc);
 				}
 
 				@Override
