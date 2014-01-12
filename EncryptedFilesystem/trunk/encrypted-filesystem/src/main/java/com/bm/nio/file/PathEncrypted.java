@@ -143,7 +143,7 @@ public class PathEncrypted implements Path {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public <A extends BasicFileAttributes> A readAttributes(Class<A> type, LinkOption... options) throws IOException {
 		//return (A) new FileAttributesEncrypted(Files.readAttributes(mUnderPath, type, options)); 
-		return (A) new FileAttributesEncrypted(Files.readAttributes(getFullUnderPath(), type, options)); 
+		return (A) new FileAttributesEncrypted(Files.readAttributes(getFullUnderPath(), type, options), this); 
 	}
 
     DirectoryStream<Path> newDirectoryStream(Filter<? super Path> filter) throws IOException {

@@ -536,9 +536,12 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	@Override
 	public void move(Path source, Path target, CopyOption... options)
 			throws IOException {
-		//TODO: implement later
+		if (!(source instanceof PathEncrypted) || !(target instanceof PathEncrypted))
+			throw new ProviderMismatchException();
+		//DONE: implement later
 		//should be able to move between different filesystems, not only encrypted
-		throw new UnsupportedOperationException();
+		Files.move(((PathEncrypted)source).getUnderPath(), ((PathEncrypted)target).getUnderPath());
+//		throw new UnsupportedOperationException();
 		
 	}
 
@@ -561,7 +564,8 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	@Override
 	public FileStore getFileStore(Path path) throws IOException {
 		// TODO Auto-generated method stub
-		return null;
+		throw new UnsupportedOperationException();
+//		return null;
 	}
 
 	@Override

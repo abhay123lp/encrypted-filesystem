@@ -1,26 +1,21 @@
 package com.bm.nio.file;
 
 import java.io.File;
-import java.io.FileOutputStream;
+import java.io.FileFilter;
+import java.io.FilenameFilter;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.ByteBuffer;
-import java.nio.channels.SeekableByteChannel;
-import java.nio.file.FileSystem;
+import java.io.OutputStream;
 import java.nio.file.FileSystemAlreadyExistsException;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.nio.file.WatchService;
-import java.nio.file.spi.FileSystemProvider;
-import java.util.HashMap;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.bm.nio.file.FileSystemEncrypted.FileSystemEncryptedEnvParams;
 import com.bm.nio.file.utils.TestUtils;
 
 public class FileEncryptedTest {
@@ -63,7 +58,7 @@ public class FileEncryptedTest {
 			File ffeDecUnder = ffeDec.getUnderlyingFile();
 			//FileEncrypted(String pathname)
 			Assert.assertEquals(ffeDecUnder.compareTo(ffeEnc.getUnderlyingFile()), 0);
-			//FileEncrypted(URI uri) TODO: test encrypted URI
+			//FileEncrypted(URI uri) DONE: test encrypted URI
 			Assert.assertEquals(ffeDecUnder.compareTo(new FileEncrypted(rootFile.toURI().resolve(DEC_NAME)).getUnderlyingFile()), 0);
 			Assert.assertEquals(ffeDecUnder.compareTo(new FileEncrypted(rootFile.toURI().resolve(ENC_NAME)).getUnderlyingFile()), 0);
 			Assert.assertEquals(ffeDecUnder.compareTo(new FileEncrypted(ffeEnc.toURI()).getUnderlyingFile()), 0);
@@ -97,7 +92,7 @@ public class FileEncryptedTest {
 
 		try {
 			File rootFile = new File(TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse").getCanonicalFile();
-			FileSystem fse = TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse");
+			TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse");
 			
 			FileEncrypted fe = new FileEncrypted(rootFile, ENC_NAME);
 			Assert.assertEquals(fe.getName(), DEC_NAME);
@@ -114,7 +109,7 @@ public class FileEncryptedTest {
 
 		try {
 			File rootFile = new File(TestUtils.SANDBOX_PATH + "/testFileEncryptedName").getCanonicalFile();
-			FileSystem fse = TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName");
+			TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName");
 			
 			FileEncrypted feChild = new FileEncrypted(rootFile.getPath() + "/child", DEC_NAME);
 			FileEncrypted feParent = new FileEncrypted(rootFile.getPath(), "child");
@@ -183,7 +178,7 @@ public class FileEncryptedTest {
 
 		try {
 			File rootFile = new File(TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse").getCanonicalFile();
-			FileSystem fse = TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse");
+			TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse");
 			FileEncrypted fe = new FileEncrypted(rootFile, ENC_NAME);
 			Assert.assertEquals(fe.toPath().toUri(), fe.toURI());
 		} finally{
@@ -198,7 +193,7 @@ public class FileEncryptedTest {
 
 		try {
 			File rootFile = new File(TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse").getCanonicalFile();
-			FileSystem fse = TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse");
+			TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse");
 			FileEncrypted fe = new FileEncrypted(rootFile, DEC_NAME);
 			File f = new File(rootFile, ENC_NAME);
 			//readonly
@@ -258,14 +253,201 @@ public class FileEncryptedTest {
 		FileSystemProviderEncrypted fpe = mFspe;
 
 		try {
+			boolean exception;
 			File rootFile = new File(TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse").getCanonicalFile();
-			FileSystem fse = TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse");
+			TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse");
 			FileEncrypted fe = new FileEncrypted(rootFile, ENC_NAME);
-			File f = new File(rootFile, DEC_NAME);
-			//TODO: write to file
+			//test stream cipher
+			exception = false;
+			try {
+				fe.length();
+			} catch (RuntimeException e) {
+				//throws exception for not created file
+				exception = true;
+			}
+			Assert.assertTrue(exception);
+			//
+			final String data = "testtest";
 			fe.createNewFile();
-			fe.length();
-//			Assert.assertEquals(f.length(), fe.length());
+			writeToFile(fe, data);
+			Assert.assertEquals(data.length(), fe.length());
+			//test block cipher
+			clean();
+			ConfigEncrypted ce = new ConfigEncrypted();
+			ce.setTransformation("AES/CBC/PKCS5Padding");
+			Map<String, Object> env = TestUtils.newEnv();
+			env.put(FileSystemEncryptedEnvParams.ENV_CONFIG, ce);
+			TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse", env);
+			//NOTE: if not creating file again then it will use old filesystem!
+			fe = new FileEncrypted(rootFile, ENC_NAME);
+			exception = false;
+			try {
+				writeToFile(fe, data);
+				fe.length();
+			} catch (UnsupportedOperationException e) {
+				exception = true;
+			}
+			Assert.assertTrue(exception);
+		} finally{
+			clean();
+		}
+	}
+
+	public static void writeToFile(FileEncrypted fe, String data) throws IOException{
+		try (OutputStream os = fe.toPath().getFileSystem().provider().newOutputStream(fe.toPath())){
+			os.write(data.getBytes());
+		}
+	}
+	
+	@Test
+	public void testSpace() throws Exception {
+
+		FileSystemProviderEncrypted fpe = mFspe;
+
+		try {
+			File rootFile = new File(TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse").getCanonicalFile();
+			TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse");
+			FileEncrypted fe = new FileEncrypted(rootFile, DEC_NAME);
+			boolean exception;
+			//
+			exception = false;
+			try {
+				fe.getTotalSpace();
+			} catch (UnsupportedOperationException e) {
+				exception = true;
+			}
+			Assert.assertTrue(exception);
+			//
+			exception = false;
+			try {
+				fe.getFreeSpace();
+			} catch (UnsupportedOperationException e) {
+				exception = true;
+			}
+			Assert.assertTrue(exception);
+			//
+			exception = false;
+			try {
+				fe.getUsableSpace();
+			} catch (UnsupportedOperationException e) {
+				exception = true;
+			}
+			Assert.assertTrue(exception);
+		} finally{
+			clean();
+		}
+	}
+
+	@Test
+	public void testEqualsHashcodeCompareTo() throws Exception {
+
+		FileSystemProviderEncrypted fpe = mFspe;
+		try {
+			File rootFile = new File(TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse").getCanonicalFile();
+			TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse");
+			FileEncrypted fe = new FileEncrypted(rootFile, DEC_NAME);
+			//
+			HashSet<FileEncrypted> set = new HashSet<FileEncrypted>();
+			set.add(fe);
+			//use another constructor to create file
+			FileEncrypted feSame = new FileEncrypted(new File(rootFile, DEC_NAME), TestUtils.DEFAULT_PASSWORD);
+			Assert.assertTrue(set.contains(feSame));
+			Assert.assertEquals(0, fe.compareTo(feSame));
+			//
+			FileEncrypted feMore = new FileEncrypted(rootFile, DEC_NAME + "1");
+			FileEncrypted feLess = new FileEncrypted(rootFile, DEC_NAME.substring(0, DEC_NAME.length() - 2));
+			Assert.assertTrue(fe.compareTo(feMore) < 0);
+			Assert.assertTrue(fe.compareTo(feLess) > 0);
+		} finally{
+			clean();
+		}
+	}
+
+	@Test
+	public void testRenameTo() throws Exception {
+
+		FileSystemProviderEncrypted fpe = mFspe;
+		try {
+			File rootFile = new File(TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse").getCanonicalFile();
+			TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse");
+			FileEncrypted fe = new FileEncrypted(rootFile, DEC_NAME);
+			FileEncrypted feNew = new FileEncrypted(rootFile, DEC_NAME + "1");
+			//
+			Assert.assertFalse(fe.renameTo(feNew));
+			fe.createNewFile();
+			Assert.assertTrue(fe.renameTo(feNew));
+			Assert.assertTrue(feNew.exists());
+		} finally{
+			clean();
+		}
+	}
+
+	@Test
+	public void testList() throws Exception {
+
+		FileSystemProviderEncrypted fpe = mFspe;
+		try {
+			File rootFile = new File(TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse").getCanonicalFile();
+			TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse");
+			FileEncrypted fe = new FileEncrypted(rootFile, DEC_NAME);
+			//
+			String [] children = new String [] {"child1", "child2", "child3"};
+			Set<String> childrenSet = new HashSet<String>(Arrays.asList(children));
+			fe.mkdir();
+			FileEncrypted feChild1 = new FileEncrypted(fe, children[0]);
+			FileEncrypted feChild2 = new FileEncrypted(fe, children[1]);
+			FileEncrypted feChild3 = new FileEncrypted(fe, children[2]);
+			FileEncrypted feChild22 = new FileEncrypted(feChild2, "child2");
+			Assert.assertTrue(feChild1.createNewFile());
+			Assert.assertTrue(feChild2.mkdir());
+			Assert.assertTrue(feChild22.createNewFile());
+			Assert.assertTrue(feChild3.mkdir());
+			for (String str : fe.list()){
+				Assert.assertTrue(childrenSet.remove(str));
+			}
+			Assert.assertTrue(childrenSet.size() == 0);
+			Assert.assertArrayEquals(feChild22.list(), new String [] {"child2"});
+			//list(FilenameFilter)
+			childrenSet = new HashSet<String>(Arrays.asList(children));
+			final String filterRemove = "child2";
+			childrenSet.remove(filterRemove);
+			FilenameFilter ff = new FilenameFilter() {
+				@Override
+				public boolean accept(File dir, String name) {
+					return !name.equalsIgnoreCase(filterRemove);
+				}
+			};
+			for (String str : fe.list(ff)){
+				Assert.assertTrue(childrenSet.remove(str));
+			}
+			Assert.assertTrue(childrenSet.size() == 0);
+			//listFiles()
+			childrenSet = new HashSet<String>(Arrays.asList(children));
+			for (File file : fe.listFiles()){
+				Assert.assertTrue(childrenSet.remove(file.getName()));
+			}
+			Assert.assertTrue(childrenSet.size() == 0);
+			//listFiles(FilenameFilter)
+			childrenSet = new HashSet<String>(Arrays.asList(children));
+			childrenSet.remove(filterRemove);
+			for (File file : fe.listFiles(ff)){
+				Assert.assertTrue(childrenSet.remove(file.getName()));
+			}
+			Assert.assertTrue(childrenSet.size() == 0);
+			//listFiles(FileFilter)
+			FileFilter fff = new FileFilter() {
+				@Override
+				public boolean accept(File pathname) {
+					return !pathname.getName().equalsIgnoreCase(filterRemove);
+				}
+			};
+			childrenSet = new HashSet<String>(Arrays.asList(children));
+			childrenSet.remove(filterRemove);
+			for (File file : fe.listFiles(fff)){
+				Assert.assertTrue(childrenSet.remove(file.getName()));
+			}
+			Assert.assertTrue(childrenSet.size() == 0);
+			
 		} finally{
 			clean();
 		}
