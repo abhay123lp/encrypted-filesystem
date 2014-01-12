@@ -164,18 +164,108 @@ public class FileEncryptedTest {
 	
 	@Test
 	public void testGetCanonical() throws Exception {
+		try {
+			File fNotCanonical = new File(TestUtils.SANDBOX_PATH + "/../../testFileEncryptedCanonical", ENC_NAME);
+			
+			FileEncrypted feNotCanonical = new FileEncrypted(fNotCanonical, TestUtils.DEFAULT_PASSWORD);
+			FileEncrypted feCanonical = new FileEncrypted(fNotCanonical.getCanonicalFile(), TestUtils.DEFAULT_PASSWORD);
+			Assert.assertEquals(feNotCanonical.getCanonicalFile(), feCanonical);
+			Assert.assertEquals(feNotCanonical.getCanonicalPath(), feCanonical.getPath());
+		} finally{
+			clean();
+		}
+	}
+
+	@Test
+	public void testToURI() throws Exception {
 
 		FileSystemProviderEncrypted fpe = mFspe;
 
 		try {
-			File fNotCanonical = new File(TestUtils.SANDBOX_PATH + "/../testFileEncryptedCanonical", ENC_NAME);
-			
-			FileEncrypted feNotCanonical = new FileEncrypted(fNotCanonical, TestUtils.DEFAULT_PASSWORD);
-			FileEncrypted feCanonical = new FileEncrypted(fNotCanonical.getCanonicalFile(), TestUtils.DEFAULT_PASSWORD);
-			
-			System.out.println(fNotCanonical);
-			System.out.println(feNotCanonical);
-			Assert.assertEquals(feNotCanonical.getCanonicalFile(), feCanonical);
+			File rootFile = new File(TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse").getCanonicalFile();
+			FileSystem fse = TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse");
+			FileEncrypted fe = new FileEncrypted(rootFile, ENC_NAME);
+			Assert.assertEquals(fe.toPath().toUri(), fe.toURI());
+		} finally{
+			clean();
+		}
+	}
+
+	@Test
+	public void testDelegates() throws Exception {
+
+		FileSystemProviderEncrypted fpe = mFspe;
+
+		try {
+			File rootFile = new File(TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse").getCanonicalFile();
+			FileSystem fse = TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse");
+			FileEncrypted fe = new FileEncrypted(rootFile, DEC_NAME);
+			File f = new File(rootFile, ENC_NAME);
+			//readonly
+			Assert.assertEquals(f.canRead(), fe.canRead());
+			fe.createNewFile();
+			fe.setReadable(false, false);
+			Assert.assertEquals(f.canRead(), fe.canRead());
+			fe.delete();
+			//execute
+			Assert.assertEquals(f.canExecute(), fe.canExecute());
+			fe.createNewFile();
+			fe.setExecutable(false, false);
+			Assert.assertEquals(f.canExecute(), fe.canExecute());
+			fe.delete();
+			//
+			Assert.assertEquals(f.canWrite(), fe.canWrite());
+			Assert.assertEquals(f.exists(), fe.exists());
+			Assert.assertEquals(f.isDirectory(), fe.isDirectory());
+			Assert.assertEquals(f.isFile(), fe.isFile());
+			Assert.assertEquals(f.isHidden(), fe.isHidden());
+			//lastmodified
+			Assert.assertEquals(f.lastModified(), fe.lastModified());
+			fe.createNewFile();
+			fe.setLastModified(100L);
+			Assert.assertEquals(100L, fe.lastModified());
+			Assert.assertEquals(100L, f.lastModified());
+			fe.delete();
+			//delete
+			fe.createNewFile();
+			Assert.assertEquals(true, fe.exists());
+			Assert.assertEquals(true, f.exists());
+			fe.delete();
+			Assert.assertEquals(false, fe.exists());
+			Assert.assertEquals(false, f.exists());
+			//mkdir
+			fe.mkdir();
+			Assert.assertEquals(true, fe.exists());
+			Assert.assertEquals(true, f.exists());
+			Assert.assertEquals(true, fe.isDirectory());
+			Assert.assertEquals(true, f.isDirectory());
+			fe.delete();
+			Assert.assertEquals(false, fe.exists());
+			Assert.assertEquals(false, f.exists());
+			//mkdirs
+			fe.toPath().resolve("nestedDir").toFile().mkdirs();
+			Assert.assertEquals(true, fe.exists());
+			Assert.assertEquals(true, fe.isDirectory());
+			Assert.assertFalse(fe.delete());//nested dir exists
+		} finally{
+			clean();
+		}
+	}
+
+	@Test
+	public void testLength() throws Exception {
+
+		FileSystemProviderEncrypted fpe = mFspe;
+
+		try {
+			File rootFile = new File(TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse").getCanonicalFile();
+			FileSystem fse = TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName/fse");
+			FileEncrypted fe = new FileEncrypted(rootFile, ENC_NAME);
+			File f = new File(rootFile, DEC_NAME);
+			//TODO: write to file
+			fe.createNewFile();
+			fe.length();
+//			Assert.assertEquals(f.length(), fe.length());
 		} finally{
 			clean();
 		}

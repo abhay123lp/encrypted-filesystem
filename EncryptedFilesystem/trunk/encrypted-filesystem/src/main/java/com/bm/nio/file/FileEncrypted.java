@@ -26,13 +26,11 @@ import java.util.HashSet;
 import java.util.List;
 
 /**
- * Encrypted filesystem should exist before creating FileEncrypted.
- * @author Mike
- *
- */
-/**
- * Encrypted filesystem should exisist before creating FileEncrypted
+ * <pre>
+ * Encrypted filesystem should exisist before creating FileEncrypted (unless password is provided)
  * This is required because Encrypted filesystem responds to name encryption
+ * Won't work with standard File streams
+ * </pre>
  * @author Mike
  *
  */
@@ -62,65 +60,117 @@ public class FileEncrypted extends File {
 	private static InitResult initPath(final File underFile){
 		return initPath(underFile, null);
 	}
+	/**
+	 * <pre>
+	 * Handles 5 cases:
+	 * 1. Absolute file, Filesystem exists
+	 * Trivially creates absolute encrypted path based on filesystem found
+	 *  
+	 * 2. Absolute file, filesystem to be created
+	 * Creates new encrypted filesystem in underFile, if it's a directory
+	 * or in underFile's parent, if it's a file
+	 * 
+	 * 3. Relative file, file system exists
+	 * Trivially creates relative encrypted path based on filesystem found
+	 * 
+	 * 4. Relative file, file system to be created.
+	 * Creates new encrypted filesystem in relative path root (./ --> projectRoot, ../ --> 1 level up projetRoot)
+	 * Then assigns relative underFile against this new filesystem
+	 * 
+	 * 5. Absolute, Relative file, nested filesystem exists
+	 * Throws FileSystemAlreadyExists exception
+	 * 
+	 * Encrypted Filesystem is always to be found using absolute normalized paths
+	 * </pre>
+	 * @param underFile
+	 * @param password
+	 * @return
+	 * 
+	 */
 	private static InitResult initPath(final File underFile, char[] password){
-//		try {
-			//find corresponding encrypted filesystem
-			final Path underPath = underFile.toPath();
-			final Path absoluteUnderPath = underPath.toAbsolutePath().normalize();
-//			final Boolean isDirectory = underFile.isDirectory();
-//			FileSystemEncrypted fse = fs.getFileSystemInternal(Paths.get(underPath.toString()));
-			//getting filesystem
-			//TODO: handle relative paths:. Decided to go with Root
-			//1. consider whether to create filesystem from parent or from relative root for relative paths
-			//2. For root filesystem should be searched against root
-			//3. For parent filesystem should be searched against parent but underlying path should be frpm parent.
-			FileSystemEncrypted fse = fs.getFileSystemInternal(absoluteUnderPath);
-			if (fse == null){
-				if (password == null)
-					throw new RuntimeException("Encrypted filesystem was not found for path " + underPath.toString());
-				final Path fsRoot;
-				if (!underFile.isAbsolute()){
-					fsRoot = underPath.subpath(0, 1).toAbsolutePath().normalize();
-				}
-				else if (underFile.isDirectory())
-					fsRoot = absoluteUnderPath;
-				else
-					fsRoot = absoluteUnderPath.getParent();
-				try {
-					fse = fs.newFileSystem(fsRoot, newEnv(password));
-				} catch (FileSystemAlreadyExistsException e) {
-					fse = fs.getFileSystemInternal(fsRoot);
-					//below will be checked in above getFileSystem for parent
-//					//if fse is still null it means that there is Encrypted filesystem that
-//					//is not appropriate for this path, 
-//					//for example there is filesystem: D:/dir/enc1 and path is: D:/dir
-//					if (fse == null)
-//						throw new RuntimeException("Filesystem cannot be created for path " + underPath.toString() + ". There is nested filesystem exists", e);
-				} catch (IOException e) {
-					throw new RuntimeException("Exception creating encrypted filesystem for path " + underPath.toString(), e);
-				}
-			}
+			// ========= deriving encrypted filesystem =========
+			final FileSystemEncrypted fse = getFilesystemEncrypted(underFile, password);
 			// ========= deriving encrypted path =========
-			PathEncrypted res;
-			try {
-				fse.decryptUnderPath(absoluteUnderPath);
-				//mUnderPath - real underlying encrypted path, i.e. D:\enc1\1EE1
-				res = new PathEncrypted(fse, underPath);
-//				return new PathEncrypted(fse, underPath);
-			} catch (Exception e) {
-				try {
-					final Path encryptedPath = fse.encryptUnderPath(absoluteUnderPath);
-					//mUnderPath - real decrypted path, i.e. D:\enc1\DIR1.
-					//Need to encrypt it first, to real path D:\enc1\1EE1
-					if (underPath.isAbsolute())
-						res = new PathEncrypted(fse, encryptedPath);
-					else
-						res = new PathEncrypted(fse, fse.getRootDir().relativize(encryptedPath));
-				} catch (GeneralSecurityException e1) {
-					throw new RuntimeException("Unable to locate encrypted or decrypted path " + underPath.toString(), e1);
-				}
+			final Path underPath = underFile.toPath();
+			final PathEncrypted encryptedPath = getPathEncrypted(fse, underPath);
+			return new InitResult(encryptedPath.getUnderPath().toUri(), encryptedPath);
+	}
+	
+	/**
+	 * <pre>
+	 * Finds filesystem based on below rules
+	 * 1. If filesystem is found underFile in absolute form, then returns it
+	 * 2. If filesystem is not found and password is provided - create a new filesystem
+	 * 3. New filesystem is created 
+	 *   3.1 For absolute files in underFile (if directory) or underFile.parent() (if file), transformed to absolute form
+	 *   3.2 For relative files in underFile.root() (../ or ./ or /dir etc.), transformed to absolute form
+	 * </pre>
+	 * @param underFile
+	 * @param password - will create new filesystem with this password and default config,
+	 * if no other filesystems are found
+	 * @return
+	 */
+	private static FileSystemEncrypted getFilesystemEncrypted(final File underFile, char[] password){
+		final Path underPath = underFile.toPath();
+		final Path absoluteUnderPath = underPath.toAbsolutePath().normalize();
+		// ========= deriving encrypted filesystem =========
+		FileSystemEncrypted fse = fs.getFileSystemInternal(absoluteUnderPath);
+		if (fse == null){
+			if (password == null)
+				throw new RuntimeException("Encrypted filesystem was not found for path " + underPath.toString());
+			final Path fsRoot;
+			if (!underFile.isAbsolute()){
+				fsRoot = underPath.subpath(0, 1).toAbsolutePath().normalize();
 			}
-			return new InitResult(res.getUnderPath().toUri(), res);
+			else if (underFile.isDirectory())
+				fsRoot = absoluteUnderPath;
+			else
+				fsRoot = absoluteUnderPath.getParent();
+			try {
+				fse = fs.newFileSystem(fsRoot, newEnv(password));
+			} catch (FileSystemAlreadyExistsException e) {
+				//catch in case someone created filesystem in another thread
+				fse = fs.getFileSystemInternal(fsRoot);
+			} catch (IOException e) {
+				throw new RuntimeException("Exception creating encrypted filesystem for path " + underPath.toString(), e);
+			}
+		}
+		return fse;
+	}
+	
+	/**
+	 * <pre>
+	 * Creates encrypted path based on underlying path and encrypted filesystem.
+	 * Simply have 2 cases
+	 * 1. If underlying path can be decrypted by filesystem then assumes underPath is in encrypted form and can use
+	 * it for creating PathEncrypted
+	 * 2. If underPath can't be decrypted then assume that it's in plain format so encrypt it and create PathEncrypted
+	 * </pre>
+	 * @param fse
+	 * @param underPath - encrypted or decrypted representation of underlying path
+	 * @return
+	 * @throws IllegalArgumentException - in case if underPath does not belong to fse
+	 */
+	private static PathEncrypted getPathEncrypted(final FileSystemEncrypted fse, final Path underPath) throws IllegalArgumentException {
+		//underlying path with encrypted names
+		Path encryptedUnderPath;
+		// ========= deriving encrypted underlying path =========
+		try {
+			fse.decryptUnderPath(underPath);
+			//if decrypted without exceptions then 
+			//ynderPath - real underlying encrypted path, i.e. D:\enc1\1EE1
+			encryptedUnderPath = underPath;
+		} catch (Exception e) {
+			try {
+				//if can't be decrypted then assuming that underPath is a plain path
+				//and need to be encrypted
+				encryptedUnderPath = fse.encryptUnderPath(underPath);
+			} catch (GeneralSecurityException e1) {
+				throw new RuntimeException("Unable to locate encrypted or decrypted path " + underPath.toString(), e1);
+			}
+		}
+		//with encrypted underpath can trivially create PathEncrypted
+		return new PathEncrypted(fse, encryptedUnderPath);
 	}
 	
 	private static URI toUnderUri(URI uri){
@@ -294,6 +344,7 @@ public class FileEncrypted extends File {
 		return super.delete();
 	}
 
+	//NOT TESTED
 	@Override
 	public void deleteOnExit() {
 		super.deleteOnExit();
@@ -492,15 +543,8 @@ public class FileEncrypted extends File {
 		return this.getPath();
 	}
 
-
 	@Override
 	public int compareTo(File pathname) {
-//		if (!(pathname instanceof FileEncrypted))
-//			throw new ProviderMismatchException();
-//		final FileEncrypted pathNameEnc = (FileEncrypted)pathname;
-//		if (!pathNameEnc.toPath().getFileSystem().equals(this.toPath().getFileSystem()))
-//			throw new IllegalArgumentException("path " + pathname + " does not belong filesystem path " + this.toPath().getFileSystem().getRootDir());
-//		toCompatible(pathname);
 		return super.compareTo(toCompatible(pathname));
 	}
 	
