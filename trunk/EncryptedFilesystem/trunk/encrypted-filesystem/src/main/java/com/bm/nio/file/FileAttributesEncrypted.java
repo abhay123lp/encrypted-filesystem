@@ -5,9 +5,11 @@ import java.nio.file.attribute.FileTime;
 
 public class FileAttributesEncrypted <T extends BasicFileAttributes> implements BasicFileAttributes{
 
-	private T mAttrs;
+	private final T mAttrs;
+//	private final PathEncrypted mPath;
 	protected FileAttributesEncrypted(T attr){
 		mAttrs = attr;
+//		mPath = path;
 	}
 	
 	@Override
@@ -47,9 +49,11 @@ public class FileAttributesEncrypted <T extends BasicFileAttributes> implements 
 
 	@Override
 	public long size() {
-		// TODO Auto-generated method stub
+		//TODO; the same as underlying size for stream ciphers
+		//throw unsupported for block ciphers
 		//should return decrypted size. Better calculated than cached.
 		return 0;
+//		throw new UnsupportedOperationException("");
 	}
 	
 	public long sizeEncryted(){

@@ -32,7 +32,8 @@ public class PathEncrypted implements Path {
 	private final Path mUnderPath;
 	/**
 	 * @param fs - encrypted filesystem (i.e. folder of zip file etc.)
-	 * @param path - underlying path (belongs to underlying filesystem)
+	 * @param path - underlying path (belongs to underlying filesystem), than should be encrypted by fs!!!
+	 * (will throw an error on plain paths)
 	 */
 	protected PathEncrypted(FileSystemEncrypted fs, Path path) throws InvalidPathException {
 		mFs = fs;
