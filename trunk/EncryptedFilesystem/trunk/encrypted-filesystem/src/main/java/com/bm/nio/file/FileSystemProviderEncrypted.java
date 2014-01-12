@@ -358,7 +358,7 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
         synchronized (filesystems) {
             FileSystemEncrypted encfs = null;
 //            try {
-            	encfs = getFileSystemInternal(uriToPath(uri).normalize().toAbsolutePath());
+            	encfs = getFileSystemInternal(uriToPath(uri).toAbsolutePath().normalize());
 //            } catch (IOException x) {
                 // ignore the ioe from toRealPath(), return FSNFE
             	//System.out.println(x);
