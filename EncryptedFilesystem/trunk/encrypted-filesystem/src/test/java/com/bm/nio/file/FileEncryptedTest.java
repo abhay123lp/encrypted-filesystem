@@ -131,23 +131,10 @@ public class FileEncryptedTest {
 		FileSystemProviderEncrypted fpe = mFspe;
 
 		try {
-			TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName");
-			
-//			FileEncrypted feRelative = new FileEncrypted(rootFile.getPath() + "/child", ENC_NAME);
 			final File underFileException = new File("./child");
 			final File underFile = new File("./childFs/chilfFile");
 			boolean exception;
-			exception = false;
-			try {
-				new FileEncrypted(underFileException, TestUtils.DEFAULT_PASSWORD);
-			} catch (FileSystemAlreadyExistsException e) {
-				//exception appears because it tries to create filesystem above already created as below:
-				//created: projectRoot/sandbox/filesystem
-				//trying to create: projectRoot (parent of projectRoot/child)
-				exception = true;
-			}
-			Assert.assertTrue(exception);
-			//this will work because created filesystem will be projectRoot/childFs
+			//creates new filesystem in current dir (projectRoot)
 			FileEncrypted feRelative = new FileEncrypted(underFile, TestUtils.DEFAULT_PASSWORD);
 			FileEncrypted feAbsolute = new FileEncrypted(underFile.getAbsoluteFile(), TestUtils.DEFAULT_PASSWORD);
 			
@@ -155,6 +142,20 @@ public class FileEncryptedTest {
 			Assert.assertTrue(feRelative.getAbsoluteFile().isAbsolute());
 			Assert.assertEquals(feRelative.getAbsoluteFile(), feAbsolute);
 			Assert.assertEquals(feRelative.getAbsoluteFile().getPath(), feAbsolute.getPath());
+			//test exception for existing filesystem
+			clean();//delete all filesystems
+			//create new one in projectRoot/sandbox
+			TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName");
+			exception = false;
+			try {
+				//will try to create new filesystem in projectRoot and throw exception
+				//because projectRoot/sandbox already exists
+				new FileEncrypted(underFileException, TestUtils.DEFAULT_PASSWORD);
+			} catch (FileSystemAlreadyExistsException e) {
+				exception = true;
+			}
+			Assert.assertTrue(exception);
+			
 			
 		} finally{
 			clean();
@@ -167,20 +168,14 @@ public class FileEncryptedTest {
 		FileSystemProviderEncrypted fpe = mFspe;
 
 		try {
-//			FileSystem fse = TestUtils.newTempFieSystem(fpe, TestUtils.SANDBOX_PATH + "/testFileEncryptedName");
-			File fNotCanonical = new File(TestUtils.SANDBOX_PATH + "/testFileEncryptedName", ENC_NAME);
+			File fNotCanonical = new File(TestUtils.SANDBOX_PATH + "/../testFileEncryptedCanonical", ENC_NAME);
 			
 			FileEncrypted feNotCanonical = new FileEncrypted(fNotCanonical, TestUtils.DEFAULT_PASSWORD);
 			FileEncrypted feCanonical = new FileEncrypted(fNotCanonical.getCanonicalFile(), TestUtils.DEFAULT_PASSWORD);
 			
-			Path nc = fNotCanonical.toPath();
-			Path c = fNotCanonical.getAbsoluteFile().toPath();
-			System.out.println(nc);
-			System.out.println(c);
-			Path cc = FileSystems.getDefault().getPath("..");
-			System.out.println(cc.subpath(0, 1).toAbsolutePath());
-//			Assert.assertEquals(feNotCanonical.getCanonicalFile(), feCanonical);
-//			Assert.assertEquals(feChild.getParent(), feParent.getPath());
+			System.out.println(fNotCanonical);
+			System.out.println(feNotCanonical);
+			Assert.assertEquals(feNotCanonical.getCanonicalFile(), feCanonical);
 		} finally{
 			clean();
 		}

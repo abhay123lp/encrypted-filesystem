@@ -67,7 +67,7 @@ public class FileEncrypted extends File {
 			//find corresponding encrypted filesystem
 			final Path underPath = underFile.toPath();
 			final Path absoluteUnderPath = underPath.toAbsolutePath().normalize();
-			final Boolean isDirectory = underFile.isDirectory();
+//			final Boolean isDirectory = underFile.isDirectory();
 //			FileSystemEncrypted fse = fs.getFileSystemInternal(Paths.get(underPath.toString()));
 			//getting filesystem
 			//TODO: handle relative paths:. Decided to go with Root
@@ -78,16 +78,18 @@ public class FileEncrypted extends File {
 			if (fse == null){
 				if (password == null)
 					throw new RuntimeException("Encrypted filesystem was not found for path " + underPath.toString());
+				final Path fsRoot;
+				if (!underFile.isAbsolute()){
+					fsRoot = underPath.subpath(0, 1).toAbsolutePath().normalize();
+				}
+				else if (underFile.isDirectory())
+					fsRoot = absoluteUnderPath;
+				else
+					fsRoot = absoluteUnderPath.getParent();
 				try {
-					if (isDirectory)
-						fse = fs.newFileSystem(absoluteUnderPath, newEnv(password));
-					else
-						fse = fs.newFileSystem(absoluteUnderPath.getParent(), newEnv(password));
+					fse = fs.newFileSystem(fsRoot, newEnv(password));
 				} catch (FileSystemAlreadyExistsException e) {
-					if (isDirectory)
-						fse = fs.getFileSystemInternal(absoluteUnderPath);
-					else
-						fse = fs.getFileSystemInternal(absoluteUnderPath.getParent());
+					fse = fs.getFileSystemInternal(fsRoot);
 					//below will be checked in above getFileSystem for parent
 //					//if fse is still null it means that there is Encrypted filesystem that
 //					//is not appropriate for this path, 
