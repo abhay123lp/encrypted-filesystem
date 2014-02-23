@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
 import java.nio.file.ClosedWatchServiceException;
-import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -19,6 +18,7 @@ import java.nio.file.Paths;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
+import java.nio.file.spi.FileSystemProvider;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -385,18 +385,12 @@ public class PathEncryptedTest {
 		}
 		Assert.assertTrue(exception);
 		
-		//
+		// assert transformation to file and back
 		File f2 = a2.toFile();
-		exception = false;
-		try (FileInputStream fi = new FileInputStream(f2);) {
-			int i = fi.read();
-			Assert.assertEquals(i, DATA);//for default stream cipher one byte is not encoded.
-		} catch (Exception e) {
-			exception = true;
-		}
-		Assert.assertFalse(exception);
+		Assert.assertTrue(f2 instanceof FileEncrypted);
+		Assert.assertEquals(a2, f2.toPath());
 		//
-		
+
 	}
 
 	@Test
