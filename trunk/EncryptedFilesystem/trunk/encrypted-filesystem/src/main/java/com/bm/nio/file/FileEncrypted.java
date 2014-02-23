@@ -6,16 +6,13 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.file.FileSystem;
 import java.nio.file.FileSystemAlreadyExistsException;
 import java.nio.file.FileVisitOption;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.ProviderMismatchException;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.spi.FileSystemProvider;
@@ -28,7 +25,7 @@ import java.util.List;
 /**
  * <pre>
  * Encrypted filesystem should exisist before creating FileEncrypted (unless password is provided)
- * This is required because Encrypted filesystem responds to name encryption
+ * This is required because Encrypted filesystem is responsible for name encryption
  * Won't work with standard File streams, use fpe.newOutputStream(fe.toPath())
  * </pre>
  * @author Mike

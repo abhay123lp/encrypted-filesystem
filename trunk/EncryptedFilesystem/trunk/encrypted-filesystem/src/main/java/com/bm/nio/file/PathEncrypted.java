@@ -413,7 +413,7 @@ public class PathEncrypted implements Path {
 	//+ Done
 	@Override
 	public File toFile() {
-		return  getFullUnderPath().toFile();
+		return new FileEncrypted(toUri());
 	}
 
 	//+ Done

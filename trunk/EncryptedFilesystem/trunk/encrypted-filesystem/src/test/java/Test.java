@@ -105,9 +105,15 @@ public class Test {
 		
 //		new IntegrationTest().testCopy();
 //		new Test().measureEncSpeed();
-		new Test().checkKey();
+//		new Test().checkKey();
+		System.out.println(Boolean.TRUE.equals(null));
 
-		
+		byte [] b = new byte [] {-123, -81, -39, -69, -53, -120, 55, -103, -80, -91, 85, 122, -45, 118, -48, 79};
+	}
+	
+	@org.junit.Test
+	public void test(){
+		System.out.println(Boolean.TRUE.equals(null));		
 	}
 	
 	public void testStartsForZip() throws Exception{
