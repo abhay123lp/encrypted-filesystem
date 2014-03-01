@@ -42,9 +42,6 @@ import static com.bm.nio.file.FileSystemEncrypted.FileSystemEncryptedEnvParams.E
 
 
 public class FileSystemProviderEncrypted extends FileSystemProvider {
-
-	//private final Map<Path, FileSystemEncrypted> filesystems = new HashMap<>();
-	
 	//A correspondence between encrypted folder root of underlying filesystem and
 	//encrypted filesystem object
 	private Object lock = new Object();
@@ -53,11 +50,6 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	public String getScheme() {
 		return "encrypted";
 	}
-	
-//	public void test(){
-//		for (Path p : filesystems.navigableKeySet())
-//			System.out.println(p);
-//	}
 	
 	//correct Path comparison
 	//sync3\
@@ -77,20 +69,6 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 		@Override
 		public int compare(Path o1, Path o2) {
 			return o1.toUri().compareTo(o2.toUri());
-//			final int o1Cnt = o1.getNameCount();
-//			final int o2Cnt = o2.getNameCount();
-//			final int oMin = Math.min(o1Cnt, o2Cnt);
-//			for (int i = 0; i < oMin; i ++){
-//				final int compare = o1.getName(i).compareTo(o2.getName(i));
-//				if (compare != 0)
-//					return compare;
-//			}
-//			if (o1Cnt == o2Cnt)
-//				return 0;
-//			else if (o1Cnt > o2Cnt)//longer-->greater
-//				return 1;
-//			else 
-//				return -1;
 		}
 		
 	}
@@ -165,16 +143,12 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 						" Path does not exist and can not be used as encrypted storage");
 			}
 		}
-		//TOD1O: create configuration file
-		// or choose already existing one
-		// configuration file is managed by filesystem!
         synchronized(filesystems) {
             Path realPath = null;
             if (validatePath(path)) {
             	//TODO: consider using toAbstractPath().normalize()
             	//otherwise it will work incorrectly with links
                 realPath = path.toRealPath();
-                //if (filesystems.containsKey(realPath))
                 if (getFileSystemInternal(realPath) != null)
                     throw new FileSystemAlreadyExistsException("Path: " + path);
             } else
@@ -236,58 +210,6 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 							+ ". There is nested filesystem exists "
 							+ res.getRootDir());
 		return res;
-		
-//		final String pStr = p.toUri().getPath();
-//		//should find root folder 
-//		//compare using URI's path
-//		final Entry<Path, FileSystemEncrypted> h = filesystems.ceilingEntry(p);
-//		if (h != null && p.getFileSystem().equals(h.getKey().getFileSystem())){
-//			final String ceiling = h.getKey().toUri().getPath();
-//			if (ceiling == null || pStr == null){
-//				if (ceiling == null && pStr == null)
-//					return h.getValue();
-//				else
-//					return null;
-//			}
-//			if (pStr.startsWith(ceiling))
-//				return h.getValue();
-//			if (ceiling.startsWith(pStr))
-//				return h.getValue();
-//		}
-//		final Entry<Path, FileSystemEncrypted> l = filesystems.floorEntry(p);
-//		if (l != null && p.getFileSystem().equals(l.getKey().getFileSystem())){
-//			final String floor = l.getKey().toUri().getPath();
-//			if (floor == null || pStr == null){
-//				if (floor == null && pStr == null)
-//					return l.getValue();
-//				else
-//					return null;
-//			}
-//			if (pStr.startsWith(floor))
-//				return l.getValue();
-//			if (floor.startsWith(pStr))
-//				return l.getValue();
-//		}		
-//		return null;
-
-//		//should find root folder 
-//		final Entry<Path, FileSystemEncrypted> h = filesystems.ceilingEntry(p);
-//		if (h != null){
-//			final Path ceiling = h.getKey();
-//			if (p.startsWith(ceiling))
-//				return h.getValue();
-//			if (ceiling.startsWith(p))
-//				return h.getValue();
-//		}
-//		final Entry<Path, FileSystemEncrypted> l = filesystems.floorEntry(p);
-//		if (l != null){
-//			final Path floor = l.getKey();
-//			if (p.startsWith(floor))
-//				return l.getValue();
-//			if (floor.startsWith(p))
-//				return l.getValue();
-//		}		
-//		return null;
 	}
 	
     /**
@@ -334,18 +256,6 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	@Override
 	public FileSystemEncrypted getFileSystem(URI uri) {
 		return getFileSystemInternal(uri);
-//        synchronized (filesystems) {
-//            FileSystem encfs = null;
-//            try {
-//            	encfs = getFileSystem(uriToPath(uri).toRealPath());
-//            } catch (IOException x) {
-//                // ignore the ioe from toRealPath(), return FSNFE
-//            	//System.out.println(x);
-//            }
-//            if (encfs == null)
-//                throw new FileSystemNotFoundException();
-//            return encfs;
-//        }
 	}
 	//Gets encrypted URI, encrypted:file:///D:/enc1/dir
     //returns FileSystemEncrypted, FileSystemEncrypted(D:/enc1)	
@@ -357,12 +267,7 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	protected FileSystemEncrypted getFileSystemInternal(URI uri) {
         synchronized (filesystems) {
             FileSystemEncrypted encfs = null;
-//            try {
-            	encfs = getFileSystemInternal(uriToPath(uri).toAbsolutePath().normalize());
-//            } catch (IOException x) {
-                // ignore the ioe from toRealPath(), return FSNFE
-            	//System.out.println(x);
-//            }
+           	encfs = getFileSystemInternal(uriToPath(uri).toAbsolutePath().normalize());
             if (encfs == null)
                 throw new FileSystemNotFoundException();
             return encfs;
@@ -391,13 +296,12 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 		//TODO: what if URI == file://./enc1/dir???
 		Path lPath;
 		FileSystemEncrypted fs = getFileSystemInternal(uri);
-		lPath = uriToPath(uri);//Path(file:///D:/enc1/dir) - incorrect under path
+		lPath = uriToPath(uri);
 		try {
-			lPath = fs.encryptUnderPath(lPath);//Path(file:///D:/enc1/F11A)
+			lPath = fs.encryptUnderPath(lPath);
 		} catch (GeneralSecurityException e) {
 			throw new RuntimeException("Unable to encode path " + lPath, e);
 		}
-//		lPath = fs.toEncrypted(lPath);//Path(encrypted:file:///D:/enc1/dir)
         return fs.toEncrypted(lPath);
 	}
 
@@ -583,8 +487,12 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 	@Override
 	public <V extends FileAttributeView> V getFileAttributeView(Path path,
 			Class<V> type, LinkOption... options) {
+		if (!(path instanceof PathEncrypted))
+			throw new ProviderMismatchException();
 		// TODO Auto-generated method stub
-		return null;
+		//return attribute view from underlying path
+		final Path underPath = ((PathEncrypted)path).getUnderPath();
+		return underPath.getFileSystem().provider().getFileAttributeView(underPath, type, options);
 	}
 
 	/**

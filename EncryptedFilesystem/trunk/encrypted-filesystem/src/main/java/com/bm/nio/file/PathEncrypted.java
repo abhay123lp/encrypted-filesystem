@@ -51,6 +51,9 @@ public class PathEncrypted implements Path {
 			mFs.decryptUnderPath(path);
 		} catch (GeneralSecurityException e1) {
 			return false;
+		} catch (IllegalArgumentException iae){
+			//in case of HEX decoder exception
+			return false;
 		}
 		return true;
 	}
@@ -175,6 +178,8 @@ public class PathEncrypted implements Path {
 	//+ Done
 	@Override
 	public PathEncrypted getFileName() {
+		if (mUnderPath.equals(mFs.getRootDir()))//check if path is root then return empty path
+			return new PathEncrypted(mFs, mUnderPath.relativize(mUnderPath));
 		return mFs.toEncrypted(mUnderPath.getFileName());
 	}
 
@@ -183,7 +188,7 @@ public class PathEncrypted implements Path {
 	public PathEncrypted getParent() {
 		if (mUnderPath.getParent() == null)
 			return null;
-		if (mUnderPath.equals(mFs.getRootDir()))//check if path is root the don't have parent.
+		if (mUnderPath.equals(mFs.getRootDir()))//check if path is root then don't have parent.
 			return null;
 		final PathEncrypted parent = mFs.toEncrypted(mUnderPath.getParent());
 		return parent;
@@ -407,12 +412,11 @@ public class PathEncrypted implements Path {
 	}
 
 	/**
-	 * Returns physical file associated with this path. Name and contents are encrypted.
-	 * @return
+	 * @return Encrypted file.
 	 */
 	//+ Done
 	@Override
-	public File toFile() {
+	public FileEncrypted toFile() {
 		return new FileEncrypted(toUri());
 	}
 

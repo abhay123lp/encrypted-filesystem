@@ -1,34 +1,10 @@
 package com.bm.nio.file;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.ByteBuffer;
-import java.nio.channels.ByteChannel;
-import java.nio.channels.Channel;
-import java.nio.channels.Channels;
 import java.nio.channels.SeekableByteChannel;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystemAlreadyExistsException;
-import java.nio.file.FileSystems;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.spi.FileSystemProvider;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
-import java.util.zip.ZipFile;
-
-import javax.xml.bind.DatatypeConverter;
-
-import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -226,9 +202,7 @@ public class SeekableByteChannelEncryptedTest {
 				underChannel.first();
 				underChannel.reset();
 				int len = 0;
-				int i = 0;
 				while (underChannel.next()){
-					i ++;
 					underChannel.setSupported();
 					ce.position(0);
 					underChannel.reset();
@@ -278,7 +252,7 @@ public class SeekableByteChannelEncryptedTest {
 	}	
 	
 	
-	public Map getSpread(byte [] ar){
+	public Map<Byte, Integer> getSpread(byte [] ar){
 		final HashMap<Byte, Integer> map = new HashMap<Byte, Integer>();
 		for (byte b : ar){
 			Integer cnt = map.get(b);
@@ -291,7 +265,6 @@ public class SeekableByteChannelEncryptedTest {
 	}
 	@Test
 	public void seekableByteChannelParallelTest() throws Exception{
-		//TODO:
 		String [] transformations = new String [] {"AES/CBC/PKCS5Padding", "AES/CFB/NoPadding"};
 		for (final String transformation : transformations){
 			//init
@@ -345,23 +318,11 @@ public class SeekableByteChannelEncryptedTest {
 			final byte [] test = bb.array();
 			// fill in
 			// test
-			Map srcMap = getSpread(src);
-			Map testMap = getSpread(test);
+			Map<Byte, Integer> srcMap = getSpread(src);
+			Map<Byte, Integer> testMap = getSpread(test);
 			//System.out.println(new String(bb.array()));
 			//System.out.println(srcMap.equals(testMap));
 			Assert.assertEquals(srcMap, testMap);
 		}		
 	}
-	
-//	@Test
-//	public void seekableByteChannelTest() throws Exception{
-//		String text = "12345678901234567890";
-//		HashMap<String, Object> props = new HashMap<String, Object>();
-//		props.put(OutputStreamCrypto.PASSWORD, "pwd".toCharArray());
-//		ByteOutputStream bo = new ByteOutputStream();
-//		
-//		
-//		SeekableByteChannelEncrypted ce = getSeekableByteChannelEncrypted(getUnderChannelFixed(), "AES/CFB/NoPadding", 8);//new SeekableByteChannelEncrypted(null);
-//		Assert.assertEquals(text, new String(ce.decryptBlock(ce.encryptBlock(text.getBytes()))));
-//	}
 }

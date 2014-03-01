@@ -22,16 +22,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 
@@ -39,11 +35,8 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.bm.nio.channels.SeekableByteChannelEncrypted;
 import com.bm.nio.file.utils.TestUtils;
 import com.bm.nio.utils.CipherUtils;
-import com.bm.nio.utils.CipherUtils.CipherUtilsImpl;
-import com.bm.nio.utils.impl.CipherUtilsImplFast;
 import com.bm.nio.utils.impl.CipherUtilsImplStandard;
 
 public class IntegrationTest {
@@ -71,21 +64,12 @@ public class IntegrationTest {
 		Map<String, Object> env = new HashMap<String, Object>();
 		env.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_CONFIG, ce);
 		env.put(FileSystemEncrypted.FileSystemEncryptedEnvParams.ENV_PASSWORD, "password1".toCharArray());
-		FileSystem fs = null;
 		try {
-			fs = TestUtils.newTempFieSystem(mFspe, TestUtils.SANDBOX_PATH + "/testCopy", env);			
+			TestUtils.newTempFieSystem(mFspe, TestUtils.SANDBOX_PATH + "/testCopy", env);			
 		} catch (IOException e) {
 			if (!(e.getCause() instanceof NoSuchAlgorithmException))
 				throw e;
 		}
-		
-		
-		Path enc = fs.getPath("/");
-		
-//		TransformationCaseProvider t = new TransformationCaseProvider(ALGORITHMS, MODES, PADDINGS);
-//		String transf = "";
-//		while ((transf = t.getNextTransformation()).length() != 0)
-//			System.out.println(transf);
 	}
 
 //	@Test
@@ -357,10 +341,6 @@ public class IntegrationTest {
 		FileSystem fs1 = TestUtils.newTempFieSystem(mFspe, enc2Path, env2);
 		enc = fs.getPath("/");
 		enc1 = fs1.getPath("/");
-//		enc = TestUtils.newTempFieSystem(mFspe, enc1Path, env1).getPath("/");
-//		enc1 = TestUtils.newTempFieSystem(mFspe, enc2Path, env2).getPath("/");
-		Path p;
-		p = fs.getPath("123");
 		Path target = Paths.get(targetPath);
 		//Path 
 		//prepare
@@ -421,9 +401,6 @@ public class IntegrationTest {
 		TestUtils.endTime("Compare - ENCRYPTED-ENCRYPTED1");
 		System.out.println(TestUtils.printTime("Compare - ENCRYPTED-ENCRYPTED1"));
 		System.out.println(TestUtils.printTimeGroup(true, "group"));
-		
-		p = fs.getPath("123");
-
 	}
 	
 	public String equals(Path sourceLocation , Path targetLocation) throws IOException{
@@ -451,7 +428,6 @@ public class IntegrationTest {
 	 public class DirCompareVisitor extends SimpleFileVisitor<Path> {
 		    private Path fromPath;
 		    private Path toPath;
-		    private StandardCopyOption copyOption = StandardCopyOption.REPLACE_EXISTING;
 		    
 		    public DirCompareVisitor(Path from, Path to){
 		    	fromPath = from;
@@ -912,9 +888,6 @@ public class IntegrationTest {
 	 *
 	 */
 	class CipherUtilsImplMeasure extends CipherUtilsImplStandard {
-		private long decAmt = 0;
-		private long encAmt = 0;
-		
 		@Override
 		public byte[] decryptBlockImpl(Cipher decipher, byte[] bufEnc,
 				int start, int len) throws GeneralSecurityException {
@@ -929,7 +902,6 @@ public class IntegrationTest {
 				int start, int len) throws GeneralSecurityException {
 			TestUtils.startTime("encrypt", "group");
 			byte [] res = super.encryptBlockImpl(encipher, bufPlain, start, len);
-			encAmt += len;
 			TestUtils.endTime("encrypt");
 			return res;
 		}
@@ -967,12 +939,6 @@ public class IntegrationTest {
 		}
 
 		public String getTransformation(){
-			try {
-				String str = algorithms[algIndex].algorithm + "/" + modes[modeIndex] + "/" + paddings[padIndex];
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-			
 			return algorithms[algIndex].algorithm + "/" + modes[modeIndex] + "/" + paddings[padIndex];
 		}
 		
