@@ -204,9 +204,18 @@ public class FileEncrypted extends File {
 	 */
 	private final PathEncrypted mPath;
 	
+	/**
+	 * @param parent
+	 * @param child
+	 * @return always underlying file
+	 * <ol>
+	 * <li>if parent is FileEncrypted - returns its underlying file resolved to child</li>
+	 * <li>if parent is not FileEncrypted - returns default filesystem file resolved to child</li>
+	 * </ol>
+	 */
 	private static File getUnderFile(File parent, String child){
 		if (parent instanceof FileEncrypted)
-			return ((FileEncrypted)parent).toPath().resolve(child).toFile();
+			return ((FileEncrypted)parent).toPath().resolve(child).toFile().getUnderlyingFile();
 		return new File(parent, child);
 	}
 	

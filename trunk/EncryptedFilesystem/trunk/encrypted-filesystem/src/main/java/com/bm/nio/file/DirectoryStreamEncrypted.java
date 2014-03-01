@@ -14,7 +14,7 @@ public class DirectoryStreamEncrypted implements DirectoryStream<Path> {
 	private PathEncrypted mPath;
 	protected  DirectoryStreamEncrypted(PathEncrypted path, Filter<? super Path> filter) throws IOException {
 		//mUnderDirectoryStream = Files.newDirectoryStream(path.getUnderPath());
-		mUnderDirectoryStream = Files.newDirectoryStream(path.getFullUnderPath());
+		mUnderDirectoryStream = Files.newDirectoryStream(path.getFullUnderPath(), filter);
 		mPath = path;
 	}
 	@Override

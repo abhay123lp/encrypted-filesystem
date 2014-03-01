@@ -18,9 +18,7 @@ import java.nio.file.Paths;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
-import java.nio.file.spi.FileSystemProvider;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -245,6 +243,13 @@ public class PathEncryptedTest {
 			Assert.assertEquals(fileNameExpect.get(i), String.valueOf(paths.get(i).getFileName()));
 			Assert.assertEquals(parentNameExpect.get(i), String.valueOf(paths.get(i).getParent()));
 		}
+	}
+	
+	@Test
+	public void testGetFileName() throws Exception {
+		//checking border condition, when path is a root.
+		final Path a1 = fs.getPath("").toAbsolutePath();
+		Assert.assertEquals("", a1.getFileName().toString());
 	}
 	
 	
@@ -502,7 +507,7 @@ public class PathEncryptedTest {
 		//
 		
 		Path p1 = fs.getPath(".", "dir2", "dir3");
-		Path up = ((PathEncrypted)dirs).getUnderPath();
+//		Path up = ((PathEncrypted)dirs).getUnderPath();
 		Assert.assertFalse(d1.equals(p1));
 		//TODO: zip filesystem does not deletes correctly, FIX that
 		
