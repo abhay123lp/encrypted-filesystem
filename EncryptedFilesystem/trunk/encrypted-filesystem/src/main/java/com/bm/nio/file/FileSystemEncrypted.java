@@ -231,9 +231,6 @@ public class FileSystemEncrypted extends FileSystem {
 	 * <p> See {@link #toEncrypted(URI)}
 	 */
 	protected PathEncrypted toEncrypted(Path path){
-		//TOD1O: create correct transformation
-		//14/04/2013 - not sure what above means?? Transform (decrypt) name?
-		//TODO: think about using non absolute path
 		if (!isSubPath(path))
 			throw new IllegalArgumentException("path " + path + " does not belong filesystem path " + mRoot);
 		return new PathEncrypted(this, path);//path.toAbsolutePath()?
@@ -508,8 +505,7 @@ public class FileSystemEncrypted extends FileSystem {
 
 	@Override
 	public Set<String> supportedFileAttributeViews() {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException();
+		return mRoot.getFileSystem().supportedFileAttributeViews();
 	}
 
 	@Override

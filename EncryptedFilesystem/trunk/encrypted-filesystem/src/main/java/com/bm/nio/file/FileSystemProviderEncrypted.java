@@ -492,7 +492,7 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 		// TODO Auto-generated method stub
 		//return attribute view from underlying path
 		final Path underPath = ((PathEncrypted)path).getUnderPath();
-		return underPath.getFileSystem().provider().getFileAttributeView(underPath, type, options);
+		return Files.getFileAttributeView(underPath, type, options);
 	}
 
 	/**
@@ -507,22 +507,23 @@ public class FileSystemProviderEncrypted extends FileSystemProvider {
 			Class<A> type, LinkOption... options) throws IOException {
 		if (!(path instanceof PathEncrypted))//analogy with other providers
 			throw new ProviderMismatchException();
-		//TOTEST
 		return ((PathEncrypted)path).readAttributes(type, options);
 	}
 
 	@Override
 	public Map<String, Object> readAttributes(Path path, String attributes,
 			LinkOption... options) throws IOException {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException();
+		if (!(path instanceof PathEncrypted))
+			throw new ProviderMismatchException();
+		return Files.readAttributes(((PathEncrypted)path).getUnderPath(), attributes, options);
 	}
 
 	@Override
 	public void setAttribute(Path path, String attribute, Object value,
 			LinkOption... options) throws IOException {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException();
+		if (!(path instanceof PathEncrypted))
+			throw new ProviderMismatchException();
+		Files.setAttribute(((PathEncrypted)path).getUnderPath(), attribute, value, options);
 	}
 
 }
